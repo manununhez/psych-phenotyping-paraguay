@@ -1,0 +1,12 @@
+# Datos sensibles
+data/*
+!data/README.md
+
+# Entornos y temporales
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+.env
+
+.venv/

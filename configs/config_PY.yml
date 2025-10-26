@@ -1,0 +1,7 @@
+# define cómo y con qué léxicos corre el modelo rule-based del proyecto colombiano
+# configuración para procesar tu dataset con las adaptaciones paraguayas (léxicos, contextos, columnas).
+
+text_column: original_motivo_consulta
+lexicon_path: assets/lexicons/depression_anxiety/concepts_PY.yml
+context_rules_path: assets/lexicons/context_rules_PY.yml
+output_dir: outputs/paraguay_run
