@@ -10,3 +10,9 @@ __pycache__/
 .env
 
 .venv/
+
+# Carpeta de checkpoints del Trainer
+data/beto_ckpt/
+
+# Alternativas comunes
+notebooks/runs/
