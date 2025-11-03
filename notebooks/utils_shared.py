@@ -96,7 +96,7 @@ def guess_text_col(df):
             return col
     
     raise ValueError(
-        f"❌ No se encontró columna de texto en el dataset.\n"
+        f"[ERROR] No se encontró columna de texto en el dataset.\n"
         f"   Columnas disponibles: {list(df.columns)}"
     )
 
@@ -203,7 +203,7 @@ def validate_splits_exist(splits_path):
     
     if missing:
         raise FileNotFoundError(
-            f"❌ Faltan archivos de splits en {splits_path}:\n"
+            f"[ERROR] Faltan archivos de splits en {splits_path}:\n"
             f"   Faltantes: {missing}\n"
             f"   Solución: Ejecuta 02_create_splits.ipynb primero."
         )
@@ -228,7 +228,7 @@ def validate_dataset_columns(df, required_cols):
     
     if missing:
         raise ValueError(
-            f"❌ Dataset no tiene columnas requeridas: {missing}\n"
+            f"[ERROR] Dataset no tiene columnas requeridas: {missing}\n"
             f"   Columnas disponibles: {list(df.columns)}\n"
             f"   Verifica que estés usando el dataset correcto."
         )
@@ -253,7 +253,7 @@ def validate_file_exists(filepath, error_message=None):
     """
     if not filepath.exists():
         msg = error_message or f"No se encontró el archivo: {filepath}"
-        raise FileNotFoundError(f"❌ {msg}")
+        raise FileNotFoundError(f"[ERROR] {msg}")
 
 
 # ============================================================
@@ -297,8 +297,8 @@ def print_module_info():
     Imprime información sobre las funciones disponibles en este módulo.
     Útil para debugging y documentación rápida.
     """
-    print("📚 Módulo: utils_shared.py")
-    print("\n🔧 Funciones disponibles:")
+    print(" Módulo: utils_shared.py")
+    print("\n Funciones disponibles:")
     print("  Paths:")
     print("    - setup_paths(): Configura rutas del proyecto")
     print("\n  Detección de columnas:")
@@ -312,7 +312,7 @@ def print_module_info():
     print("    - validate_file_exists(path): Verifica archivo")
     print("\n  Carga:")
     print("    - load_splits(path): Carga splits de una vez")
-    print("\n💡 Uso:")
+    print("\n[INFO] Uso:")
     print("    from utils_shared import setup_paths, load_splits")
     print("    paths = setup_paths()")
     print("    dataset, train_ids, val_ids = load_splits(paths['SPLITS_PATH'])")
