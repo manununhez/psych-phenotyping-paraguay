@@ -1,18 +1,126 @@
-# Datos sensibles
-data/*
+# ============================================================
+# DATOS SENSIBLES (pacientes y resultados)
+# ============================================================
+# Ignorar todos los archivos CSV con datos de pacientes
+data/*.csv
+data/*.xlsx
+data/*.json
+
+# Excepción: mantener README de documentación
 !data/README.md
 
-# Entornos y temporales
-__pycache__/
-*.pyc
-.ipynb_checkpoints/
-.DS_Store
-.env
+# Splits generados (pueden regenerarse con 02_create_splits.ipynb)
+data/splits/
 
+# Figuras generadas (pueden regenerarse)
+data/figs/
+
+# ============================================================
+# PROYECTOS EXTERNOS / FORKS
+# ============================================================
+# Fork del proyecto colombiano (tiene su propio repo git)
+Spanish_Psych_Phenotyping_PY/
+
+# ============================================================
+# ENTORNOS VIRTUALES Y DEPENDENCIAS
+# ============================================================
+# Entorno virtual Python
 .venv/
+venv/
+env/
+ENV/
 
-# Carpeta de checkpoints del Trainer
-data/beto_ckpt/
+# Python cache y bytecode
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.Python
 
-# Alternativas comunes
+# Egg files
+*.egg
+*.egg-info/
+dist/
+build/
+
+# ============================================================
+# NOTEBOOKS Y JUPYTER
+# ============================================================
+# Checkpoints de Jupyter
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# Outputs de notebooks (pueden regenerarse)
+notebooks/outputs/
 notebooks/runs/
+outputs/
+runs/
+
+# ============================================================
+# MODELOS Y CHECKPOINTS
+# ============================================================
+# Checkpoints de BETO/transformers
+data/beto_ckpt/
+*.pt
+*.pth
+*.bin
+*.ckpt
+
+# Cache de transformers
+transformers_cache/
+.cache/
+
+# ============================================================
+# SISTEMA OPERATIVO
+# ============================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+.directory
+
+# ============================================================
+# IDEs Y EDITORES
+# ============================================================
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+
+# Jupyter
+.jupyter/
+
+# ============================================================
+# OTROS ARCHIVOS TEMPORALES
+# ============================================================
+# Variables de entorno
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Archivos temporales generales
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
