@@ -30,10 +30,11 @@ Este proyecto implementa un sistema de **fenotipado psicológico** para clasific
 
 ### Características Principales:
 
-- [OK] **Reproducible**: Splits fijos, seed 42, notebooks documentados
+- **Reproducible**: Splits fijos (patient-level), seed 42, notebooks documentados
+- **Sin Data Leakage**: Split por PACIENTES (no por casos), 0% overlap
 - **Comparativo**: 3 baselines (rule-based, TF-IDF, BETO)
 - **Interpretable**: Visualizaciones, reportes detallados, comentarios extensos
-- **Limpio**: Código modularizado, sin duplicación (~150 líneas eliminadas)
+- **Limpio**: Código modularizado con `utils_shared.py`, sin duplicación
 - **Seguro**: Datos sensibles nunca se suben a git
 
 ### Contexto:
@@ -42,6 +43,7 @@ El proyecto adapta metodologías del **Spanish Psych Phenotyping** (Colombia) al
 - Variaciones dialectales del español paraguayo
 - Ruido en transcripciones clínicas (typos, abreviaciones)
 - Desbalance de clases (70% depresión, 30% ansiedad)
+- **Estructura longitudinal**: 90 pacientes con ~35 consultas cada uno
 
 ---
 
@@ -103,20 +105,25 @@ graph LR
 
 1. **00_setup.ipynb**: Validación de dependencias, paths, estructura
 2. **01_eda_understanding.ipynb**: 
- - EDA completo del dataset
- - Limpieza conservadora (preserva tildes, mayúsculas)
- - Genera `ips_clean.csv`
+   - EDA completo del dataset (incluye análisis de pacientes)
+   - Detecta estructura longitudinal (90 pacientes × 35 consultas)
+   - Limpieza conservadora (preserva tildes, mayúsculas)
+   - Genera `ips_clean.csv`
 3. **02_create_splits.ipynb**:
- - Split estratificado 80/20 (seed=42)
- - Genera `dataset_base.csv`, `train_indices.csv`, `val_indices.csv`
+   - **Split por PACIENTES** (no por casos) para evitar leakage
+   - Estratificado por clase mayoritaria del paciente
+   - 80/20 split (seed=42): 72 pacientes train / 18 val
+   - Genera `dataset_base.csv`, `train_indices.csv`, `val_indices.csv`
+   - **Verificación**: 0% overlap de pacientes entre train/val
 4. **02_baseline_*.ipynb**:
- - Cada baseline carga los mismos splits
- - Aplica su propia estrategia de preprocesamiento
- - Exporta predicciones y métricas
+   - Cada baseline carga los mismos splits (patient-level)
+   - Aplica su propia estrategia de preprocesamiento
+   - Exporta predicciones y métricas
+   - **Importante**: Todos usan `data/splits/` para garantizar comparación justa
 5. **02_comparacion_resultados.ipynb**:
- - Compara métricas de los 3 baselines
- - Visualizaciones (barplots, análisis por clase)
- - Interpretación de resultados
+   - Compara métricas de los 3 baselines
+   - Visualizaciones (barplots, análisis por clase)
+   - Interpretación de resultados
 
 ---
 
@@ -249,18 +256,6 @@ jupyter notebook notebooks/02_comparacion_resultados.ipynb
 
 ---
 
-## Resultados
-
-> **Nota**: Los resultados específicos dependen de tu dataset. Ejecuta `02_comparacion_resultados.ipynb` para ver tus métricas.
-
-### Ejemplo de Salida:
-
-| Baseline | Macro F1 | Macro Precision | Macro Recall |
-|----------|----------|-----------------|--------------|
-| Rule-Based | 0.XX | 0.XX | 0.XX |
-| TF-IDF | 0.XX | 0.XX | 0.XX |
-| BETO | 0.XX | 0.XX | 0.XX |
-
 ### Archivos Generados:
 
 Cada baseline genera:
@@ -268,6 +263,8 @@ Cada baseline genera:
 - `{baseline}_eval.csv`: Métricas macro
 - `{baseline}_classification_report.csv`: Reporte por clase
 - `{baseline}_confusion_matrix.csv`: Matriz de confusión
+
+**Ubicación**: `data/` (todos los CSVs de resultados)
 
 ---
 
@@ -328,37 +325,24 @@ Cada baseline genera:
 
 **Alternativa considerada**: 70/15/15 (train/val/test) → Rechazada por dataset pequeño.
 
+### 6. ¿Por qué patient-level split en lugar de split por casos?
+
+**Decisión**: Split por PACIENTES (no por casos/consultas).
+
+**Razones**:
+- **Evita data leakage**: Dataset tiene 90 pacientes × 35 consultas promedio
+- **Split por casos → 100% leakage**: Todos los pacientes estarían en train Y val
+- **Cumple estándares**: FDA, TRIPOD-AI requieren entidades independientes
+- **Generalización real**: Simula clasificar pacientes NUEVOS (despliegue)
+
 ---
 
 ## Documentación Adicional
 
 - **[data/README.md](data/README.md)**: Descripción de archivos de datos
-- **[notebooks/utils_shared.py](notebooks/utils_shared.py)**: Documentación de funciones compartidas
+- **[notebooks/utils_shared.py](notebooks/utils_shared.py)**: Documentación de funciones compartidas (324 líneas)
 - **Comentarios en notebooks**: Cada notebook tiene 50-80 líneas de comentarios explicativos
 
----
-
-## Contribuir
-
-Contribuciones son bienvenidas! Por favor:
-
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit tus cambios (`git commit -m 'feat: añade nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Abre un Pull Request
-
-### Convenciones:
-- Usa `black` para formateo de código
-- Documenta funciones con docstrings
-- Agrega comentarios explicativos (el "por qué", no el "qué")
-- Ejecuta notebooks antes de hacer commit
-
----
-
-## License
-
-Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
 
 ---
 
@@ -367,22 +351,4 @@ Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detal
 - **Manuel Nuñez** - [@manununhez](https://github.com/manununhez)
 
 **Basado en**: [Spanish Psych Phenotyping](https://github.com/clarafrydman/Spanish_Psych_Phenotyping) por Clara Frydman
-
----
-
-## Contacto
-
-Para preguntas o colaboraciones: [tu-email@example.com]
-
----
-
-## Agradecimientos
-
-- Proyecto Spanish Psych Phenotyping (Colombia)
-- Universidad Nacional de Asunción
-- [Otras instituciones/colaboradores]
-
----
-
-** Si este proyecto te resultó útil, considera darle una estrella en GitHub!**
 
