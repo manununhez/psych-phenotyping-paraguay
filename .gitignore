@@ -15,6 +15,10 @@ data/splits/
 # Figuras generadas (pueden regenerarse)
 data/figs/
 
+data/planilla_validacion/
+
+data/cv_results/
+
 # ============================================================
 # PROYECTOS EXTERNOS / FORKS
 # ============================================================

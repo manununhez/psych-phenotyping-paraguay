@@ -23,6 +23,8 @@ rule_based.ipynb tfidf.ipynb transformer_beto.ipynb
 
  ↓
 02_comparacion_resultados.ipynb
+ ↓
+03_preparacion_validacion_psiquiatras.ipynb
 ```
 
 ---
@@ -52,52 +54,59 @@ rule_based.ipynb tfidf.ipynb transformer_beto.ipynb
 
 ---
 
-### `01_eda_understanding.ipynb` - EDA y Limpieza
+### `01_eda_understanding.ipynb` - EDA, Limpieza y Calidad
 
-**Propósito**: Análisis exploratorio y generación de `ips_clean.csv`.
+**Propósito**: Análisis exploratorio, limpieza y análisis de calidad de datos.
 
 **Qué hace**:
-- Carga `ips_raw.csv`
-- Análisis estadístico:
- - Distribución de clases
- - Longitud de textos
- - Análisis de ruido (mayúsculas, puntuación, espacios)
-- Análisis de n-gramas (unigrams, bigrams, trigrams)
-- Limpieza LIGERA:
- - Normaliza etiquetas (`Depresivo` → `depresion`)
- - Colapsa alargamientos (`holaaa` → `holaa`)
- - Normaliza espacios
- - **Preserva** tildes, mayúsculas, puntuación
-- Exporta `ips_clean.csv`
+- **Análisis Exploratorio:**
+  - Carga `ips_raw.csv`
+  - Distribución de clases, longitud de textos
+  - Análisis de ruido (mayúsculas, puntuación, espacios)
+  - Análisis de n-gramas (unigrams, bigrams, trigrams)
+- **Limpieza LIGERA:**
+  - Normaliza etiquetas (`Depresivo` → `depresion`)
+  - Colapsa alargamientos (`holaaa` → `holaa`)
+  - Normaliza espacios
+  - **Preserva** tildes, mayúsculas, puntuación
+- **Análisis de Calidad (Sección 4):**
+  - Textos cortos (<200 chars)
+  - Detección de repeticiones anómalas
+  - Visualización de distribución de longitudes
+  - Resumen por paciente
+  - Flags de calidad: `es_texto_corto`, `es_muy_corto`, `es_repeticion`
+- Exporta `ips_clean.csv` con flags de calidad
 - Genera CSVs de análisis (n-gramas, estadísticas)
 
 **Entrada**: `data/ips_raw.csv`
 
 **Salida**: 
-- `data/ips_clean.csv` (principal)
+- `data/ips_clean.csv` (con flags de calidad)
 - `data/eda_*.csv` (análisis)
+- `data/figs/calidad_distribucion_longitudes.png`
 
-**Tiempo estimado**: 2-5 minutos
+**Tiempo estimado**: 3-7 minutos
 
-**Decisión clave**: Limpieza conservadora para no perder información que los baselines puedan necesitar.
+**Decisión clave**: Limpieza conservadora + flags de calidad para análisis posterior.
 
 ---
 
 ### `02_create_splits.ipynb` - Splits Unificados
 
-**Propósito**: Crear splits train/val reproducibles para todos los baselines.
+**Propósito**: Crear splits train/dev/test reproducibles para todos los baselines con split metodológico 60/20/20.
 
 **Qué hace**:
 - Carga `ips_clean.csv`
-- Split estratificado 80/20:
- - Train: 2500 ejemplos
- - Val: 625 ejemplos
- - Mantiene proporción de clases (70% depresión, 30% ansiedad)
- - Seed fijo: 42
+- Split estratificado 60/20/20 a nivel de **paciente** (zero leakage):
+ - Train: 1,849 casos (54 pacientes) - Para entrenamiento
+ - Dev: 641 casos (18 pacientes) - Para validación single (contexto)
+ - Test: 637 casos (18 pacientes) - Para evaluación final ciega
+ - Estratificación por clase mayoritaria del paciente
+ - Seed fijo: 42 (reproducibilidad)
 - Exporta 3 archivos:
- - `splits/dataset_base.csv`: Dataset maestro con row_id
- - `splits/train_indices.csv`: Índices de train
- - `splits/val_indices.csv`: Índices de val
+ - `splits/train_indices.csv`: Índices de entrenamiento
+ - `splits/dev_indices.csv`: Índices de desarrollo
+ - `splits/test_indices.csv`: Índices de test (reservado)
 
 **Entrada**: `data/ips_clean.csv`
 
@@ -105,7 +114,11 @@ rule_based.ipynb tfidf.ipynb transformer_beto.ipynb
 
 **Tiempo estimado**: < 1 minuto
 
-**Decisión clave**: Separar dataset e índices permite que cada baseline aplique su propio preprocesamiento manteniendo los mismos ejemplos.
+**Decisión clave**: 
+- Split 60/20/20 permite **Cross-Validation 5-fold** en Train+Dev combinados (métrica principal)
+- Dev set independiente permite validar consistencia (dev ∈ IC95% de CV?)
+- Test ciego se reserva para evaluación final
+- Split patient-level elimina 100% de leakage entre conjuntos
 
 ---
 
@@ -217,29 +230,42 @@ rule_based.ipynb tfidf.ipynb transformer_beto.ipynb
 
 ### `02_comparacion_resultados.ipynb` - Comparación de Baselines
 
-**Propósito**: Comparar los 3 baselines con visualizaciones y análisis.
+**Propósito**: Comparar los 3 baselines con Cross-Validation 5-fold, visualizaciones y análisis de significancia.
 
 **Qué hace**:
-- Carga resultados de los 3 baselines:
- - `*_eval.csv`: Métricas macro
- - `*_classification_report.csv`: Métricas por clase
-- Genera tabla comparativa
-- Visualizaciones:
- - Barplots de F1, Precision, Recall
- - Comparación por clase (Depresión vs Ansiedad)
-- Análisis e interpretación:
- - Fortalezas y debilidades de cada baseline
- - Recomendaciones según el caso de uso
+- **Sección 1-3:** Dummy baselines (stratified, majority) para validar calidad
+- **Sección 4:** Carga resultados single dev de los 3 modelos principales
+- **Sección 5:** Cross-Validation 5-fold patient-level stratified en Train+Dev:
+  - Combina train + dev (2,490 casos, 72 pacientes)
+  - 5 folds patient-level, ~2,501 train / ~625 test por fold
+  - Calcula F1 Macro mean ± std
+  - IC95% bootstrapped (10,000 iteraciones)
+- **Sección 6-7:** Análisis de consistencia dev vs CV:
+  - Verifica si single dev cae dentro IC95% de CV
+  - Análisis de significancia estadística (IC95% solapan?)
+  - Análisis de varianza (CV%)
+- **Sección 8-9:** Visualizaciones y tabla consolidada:
+  - Gráficos comparativos CV vs single dev
+  - Tabla resumen con IC95% y significancia
+- **Sección 10:** Exporta resultados:
+  - `data/02_baselines_comparacion_cv.csv` (tabla consolidada CV)
+  - `data/cv_results/*.csv` (resultados por fold de cada modelo)
 
-**Entrada**: `data/{rule_based,tfidf,beto}_*.csv`
+**Entrada**: 
+- `data/{rule_based,tfidf,beto}_*.csv` (single dev)
+- `data/splits/*.csv` (para CV)
 
 **Salida**: 
-- `data/02_baselines_comparacion.csv` (tabla resumen)
+- `data/02_baselines_comparacion_cv.csv` (métrica principal)
+- `data/cv_results/*.csv` (detalles CV por modelo)
 - Visualizaciones en notebook
 
-**Tiempo estimado**: < 1 minuto
+**Tiempo estimado**: 5-10 minutos (por re-entrenamiento en CV)
 
-**Nota**: Requiere que los 3 baselines hayan sido ejecutados previamente.
+**Nota**: 
+- Requiere que los 3 baselines hayan sido ejecutados en single dev
+- CV es la **métrica principal para paper/tesis**
+- Single dev es contexto adicional para validar consistencia
 
 ---
 
@@ -373,7 +399,76 @@ jupyter notebook 02_baseline_transformer_beto.ipynb
 
 # 5. Comparar
 jupyter notebook 02_comparacion_resultados.ipynb
+
+# 6. Preparar validación con psiquiatras
+jupyter notebook 03_preparacion_validacion_psiquiatras.ipynb
 ```
+
+### Solo Comparación (si ya tienes splits y predicciones):
+
+```bash
+jupyter notebook 02_comparacion_resultados.ipynb
+jupyter notebook 03_preparacion_validacion_psiquiatras.ipynb
+```
+
+---
+
+## `03_preparacion_validacion_psiquiatras.ipynb` - Validación con Expertos
+
+**Propósito**: Identificar casos problemáticos para validación con profesionales psiquiatras.
+
+**Estado**: ⏳ EN DESARROLLO - Estructura inicial creada
+
+**Alcance:**
+- Analizar TODOS los casos conflictivos
+- FN para TODAS las clases (ansiedad, depresión, neutral)
+- Detectar vocabulario regional paraguayo (español + posible guaraní)
+- Identificar casos administrativos, textos cortos, ambiguos
+
+**Qué hace (planificado):**
+1. **Setup y Carga:** Predicciones de 3 modelos + dataset con flags de calidad
+2. **Análisis Exhaustivo:**
+   - Casos donde TODOS los modelos fallan
+   - FN_Ansiedad (vocabulario paraguayo)
+   - FN_Depresión (clase mayoritaria)
+   - FP_Neutral / Casos neutrales (filosofía de etiquetado)
+   - Análisis de idioma (guaraní/español)
+   - Textos cortos y repeticiones
+   - Casos administrativos
+3. **Selección Estratégica:** 25 casos representativos para reunión
+4. **Generación de Excel:**
+   - Hoja 1: Casos_Validacion (25 casos seleccionados)
+   - Hoja 2: Instrucciones (cómo completar)
+   - Hoja 3: Resumen_Completo (estadísticas + justificación)
+5. **Visualizaciones:** Matrices confusión, distribución de errores
+6. **Resumen Ejecutivo:** Recomendaciones priorizadas
+
+**Justificaciones incluidas:**
+- ✓ Por qué FN_Ansiedad Y FN_Depresión (ambas clases importantes)
+- ✓ Por qué casos neutrales (validar filosofía de etiquetado)
+- ✓ Por qué análisis de idioma (vocabulario paraguayo/guaraní)
+
+**Entrada**: 
+- `data/ips_clean.csv` (con flags de calidad)
+- `data/*_predictions.csv` (3 modelos)
+
+**Salida esperada**: 
+- `data/analisis/todos_fallan_completo.csv`
+- `data/analisis/fn_{clase}_completo.csv` (por cada clase)
+- `data/analisis/textos_cortos_completo.csv`
+- `data/analisis/casos_administrativos.csv`
+- `data/VALIDACION_PSIQUIATRAS_25_CASOS.xlsx` (muestra para reunión)
+
+**Tiempo estimado**: 10-15 minutos (cuando esté completo)
+
+**Parámetros configurables:**
+- `N_CASOS_REUNION = 25`
+- `UMBRAL_TEXTO_CORTO = 200`
+- Distribución de muestra por grupo
+
+**Siguiente paso:** Completar secciones 3-7 del notebook
+
+---
 
 ### Solo Comparación (si ya tienes splits):
 
@@ -381,6 +476,8 @@ jupyter notebook 02_comparacion_resultados.ipynb
 jupyter notebook 02_baseline_*.ipynb
 jupyter notebook 02_comparacion_resultados.ipynb
 ```
+
+### Solo Comparación (si ya tienes splits y predicciones):
 
 ---
 

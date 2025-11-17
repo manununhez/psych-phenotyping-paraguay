@@ -10,9 +10,108 @@ al contexto lingüístico y clínico de Paraguay.
 
 ---
 
+## 🚀 Inicio Rápido
+
+### Resultados Principales (Cross-Validation 5-Fold, Patient-Level)
+
+| Modelo | F1 Macro (CV) | IC95% | CV% | Mejora vs Baseline |
+|--------|---------------|-------|-----|--------------------|
+| **TF-IDF char(3,5)** | **0.850 ± 0.031** | [0.789, 0.910] | 3.6% | **+73.2%** ✅ |
+| **BETO (fine-tuned)** | **0.821 ± 0.035** | [0.753, 0.890] | 4.3% | **+67.4%** ✅ |
+| **Rule-Based (COL)** | **0.511 ± 0.053** | [0.407, 0.615] | 10.4% | +4.1% ⚠️ |
+| Dummy Stratified | 0.491 ± 0.006 | [0.478, 0.503] | 1.3% | - |
+| Dummy Majority | 0.413 ± 0.011 | [0.391, 0.435] | 2.8% | - |
+
+**Evaluaciones adicionales (single dev, 641 casos):**
+- TF-IDF: 0.866 | BETO: 0.841 | Rule-Based: 0.527
+- Todos los modelos caen dentro del IC95% de CV → split representativo ✅
+
+**🎯 Hallazgos clave metodológicos:**
+
+1. **Cross-Validation 5-fold es la métrica principal:**
+   - Con 90 pacientes, CV 5-fold usa TODOS los datos → estimación robusta
+   - Varianza real: TF-IDF ±3.6%, BETO ±4.3% (baja, modelos estables)
+   - IC95% cuantifica incertidumbre real del modelo
+
+2. **Consistencia dev vs CV confirma split representativo:**
+   - TF-IDF: Dev=0.866 dentro de IC95%=[0.789, 0.910] ✅
+   - BETO: Dev=0.841 dentro de IC95%=[0.753, 0.890] ✅
+   - Rule-Based: Dev=0.527 dentro de IC95%=[0.407, 0.615] ✅
+   - No hubo "lucky split" - split es representativo de la población
+
+3. **TF-IDF y BETO superan significativamente baseline (p<0.05):**
+   - TF-IDF: +73% vs Dummy Stratified (IC95% NO solapan)
+   - BETO: +67% vs Dummy Stratified (IC95% NO solapan)
+   - Rule-Based: +4% vs baseline (NO significativo, IC95% SÍ solapan)
+
+4. **Gap vocabulario Paraguay vs Colombia:**
+   - Rule-Based (patrones colombianos): F1=0.511, CV%=10.4% (inestable)
+   - TF-IDF (aprende de datos locales): F1=0.850, CV%=3.6% (estable)
+   - **66% de mejora** adaptando al contexto paraguayo
+
+**Estrategia de evaluación:**
+- **Cross-Validation 5-fold:** Métrica PRINCIPAL para paper/tesis
+  - Usa train+dev (2,490 casos, 72 pacientes) → maximiza uso de datos
+  - Patient-level stratified, seed 42 (reproducible)
+  - IC95% bootstrapped (10,000 iteraciones) para significancia estadística
+- **Single dev evaluation:** Contexto adicional (consistencia con CV)
+- **Test set hold-out:** Reservado para evaluación final ciega (637 casos, 18 pacientes)
+- **Zero leakage:** Split patient-level 60/20/20, 0% overlap verificado
+
+---
+
+## 📚 Documentación Organizada
+
+### 📁 docs/01_PROYECTO/ - Análisis y Resultados
+- **[README_PROYECTO.md](docs/01_PROYECTO/README_PROYECTO.md)** ⭐ Documento principal consolidado
+  - Contexto del proyecto y dataset
+  - Resultados de 3 baselines + análisis de errores
+  - Gap vocabulario Paraguay vs Colombia (75% Ansiedad)
+  - Síntomas faltantes CIE-10/DSM-5
+  - Recomendaciones y próximos pasos
+
+- **[METODOLOGIA_VALIDACION.md](docs/01_PROYECTO/METODOLOGIA_VALIDACION.md)** - Split patient-level 60/20/20 y control de leakage
+
+- **[RESUMEN_TESIS.md](docs/01_PROYECTO/RESUMEN_TESIS.md)** - Resumen ejecutivo para defensa
+
+### 📁 docs/02_CONCEPT_PY/ - Vocabulario Paraguayo
+- **[ANALISIS_CONCEPT_PY.md](docs/02_CONCEPT_PY/ANALISIS_CONCEPT_PY.md)** - Propuesta desarrollo vocabulario paraguayo
+  - Análisis 136 FN Ansiedad
+  - Top 50 términos paraguayos propuestos
+  - Plan de mejora F1 0.503 → 0.60
+
+- **[ROADMAP_CONCEPT_PY.md](docs/02_CONCEPT_PY/ROADMAP_CONCEPT_PY.md)** - Plan operativo 3 semanas
+
+- **[EVALUACION_PROYECTO_COLOMBIANO.md](docs/02_CONCEPT_PY/EVALUACION_PROYECTO_COLOMBIANO.md)** - Análisis técnico fork base
+
+- **[FENOTIPOS_ANSIEDAD_DEPRESION.md](docs/02_CONCEPT_PY/FENOTIPOS_ANSIEDAD_DEPRESION.md)** - Lista exhaustiva 48 fenotipos CIE-10
+
+- **[RESUMEN_CLASIFICACION.md](docs/02_CONCEPT_PY/RESUMEN_CLASIFICACION.md)** - Uso de patrones unificados
+
+### 📁 docs/03_VALIDACION_PSIQUIATRAS/ - Validación Clínica
+- **[GUIA_REUNION_COMPLETA.md](docs/03_VALIDACION_PSIQUIATRAS/GUIA_REUNION_COMPLETA.md)** ⭐ Guía para reunión con psiquiatras
+  - Metodología validación 25 casos
+  - Hallazgos vocabulario paraguayo (6 términos GAD-7)
+  - Template invitación profesionales
+  - Material: `data/VALIDACION_PSIQUIATRAS_25_CASOS_EXTENDIDO.xlsx` (7 hojas)
+
+### 📁 docs/04_TECNICO/ - Guías Técnicas
+- **[GUIA_MODELOS_CONCEPTUAL.md](docs/04_TECNICO/GUIA_MODELOS_CONCEPTUAL.md)** - Explicación detallada TF-IDF, BETO, Rule-Based
+
+- **[COMPARACION_LIMPIEZA.md](docs/04_TECNICO/COMPARACION_LIMPIEZA.md)** - Impacto limpieza duplicados (40.3% reducción)
+
+- **[EJEMPLO_USO_CLASIFICACION.md](docs/04_TECNICO/EJEMPLO_USO_CLASIFICACION.md)** - Tutorial código clasificación
+
+### 📜 Documentos Históricos
+- **[docs/historico/](docs/historico/)** - Reportes y planes archivados (oct-nov 2025)
+  - Ver [docs/historico/README.md](docs/historico/README.md) para detalles
+
+---
+
 ## Tabla de Contenidos
 
 - [Descripción del Proyecto](#-descripción-del-proyecto)
+- [Documentación Organizada](#-documentación-organizada)
 - [Estructura del Proyecto](#-estructura-del-proyecto)
 - [Flujo de Trabajo](#-flujo-de-trabajo)
 - [Instalación](#-instalación)
@@ -107,8 +206,16 @@ graph LR
 2. **01_eda_understanding.ipynb**: 
    - EDA completo del dataset (incluye análisis de pacientes)
    - Detecta estructura longitudinal (90 pacientes × 35 consultas)
-   - Limpieza conservadora (preserva tildes, mayúsculas)
-   - Genera `ips_clean.csv`
+   - **Limpieza aplicada a ips_clean.csv**:
+     - ✅ Normalización Unicode (NFC)
+     - ✅ Colapso de alargamientos (`ansiedaaaad` → `ansiedaad`)
+     - ✅ Remoción de caracteres extraños
+     - ✅ **NUEVO**: Remoción de oraciones duplicadas DENTRO de cada texto
+     - ✅ Eliminación de textos duplicados completos
+     - ❌ NO lowercase (preserva tildes, mayúsculas)
+     - ❌ NO elimina puntuación
+   - Genera `ips_clean.csv` (usado por TODOS los baselines)
+   - ⚠️ Si modificas esta limpieza, debes re-ejecutar TODOS los baselines
 3. **02_create_splits.ipynb**:
    - **Split por PACIENTES** (no por casos) para evitar leakage
    - Estratificado por clase mayoritaria del paciente
@@ -256,6 +363,23 @@ jupyter notebook notebooks/02_comparacion_resultados.ipynb
 
 ---
 
+### 4. Dummy Baselines (Sanity Check)
+
+**Estrategia**: Baselines triviales para validar que los modelos ML no están overfitting
+
+**Implementados**:
+- **Dummy Majority**: Predice siempre la clase mayoritaria (Depresión)
+- **Dummy Stratified**: Predice aleatoriamente respetando proporción de clases
+
+**Justificación**:
+- Valida que los modelos ML capturan patrones discriminativos reales
+- Estándar en ML para descartar modelos que memorizan sin aprender
+- Permite cuantificar mejora real sobre baseline trivial
+
+**Ver**: `notebooks/02_baseline_dummy.ipynb`
+
+---
+
 ### Archivos Generados:
 
 Cada baseline genera:
@@ -265,6 +389,41 @@ Cada baseline genera:
 - `{baseline}_confusion_matrix.csv`: Matriz de confusión
 
 **Ubicación**: `data/` (todos los CSVs de resultados)
+
+---
+
+## 📊 Resultados Principales
+
+### Comparación de Baselines (Macro F1 en validación, n=646 casos, 18 pacientes)
+
+| Modelo | F1 | Precision | Recall | Mejora vs Random |
+|--------|-------|-----------|---------|------------------|
+| **TF-IDF char(3,5)** | **0.755** | 0.746 | 0.768 | **+53.1%** ✅ |
+| **BETO (transformer)** | **0.742** | 0.736 | 0.748 | **+50.3%** ✅ |
+| **Rule-based (COL)** | **0.503** | 0.517 | 0.511 | **+2.0%** ⚠️ |
+| Dummy (Stratified) | 0.493 | 0.496 | 0.495 | - |
+| Dummy (Majority) | 0.429 | 0.375 | 0.500 | - |
+
+### Interpretación:
+
+**✅ Validación exitosa:**
+- TF-IDF y BETO superan **+50%** al baseline aleatorio → capturan patrones reales (no overfitting)
+- Performance equivalente entre TF-IDF (0.755) y BETO (0.742), diferencia de 1.3% no significativa
+- El problema A/D es fundamentalmente léxico-discriminativo
+
+**⚠️ Rule-based limitado:**
+- Apenas supera baseline aleatorio (+2.0%) por cobertura crítica
+- 78% de casos sin detección (vocabulario colombiano ≠ paraguayo)
+- Recall en Ansiedad: 0.16 (detecta solo 1 de cada 5 casos)
+
+**Archivos:**
+- Tabla consolidada: `data/02_baselines_con_dummy.csv`
+- Visualización: `data/figs/02_comparacion_con_dummy.png`
+- Análisis completo: `RESULTADOS_BASELINES_README.md`
+- Comparación pre/post limpieza: `COMPARACION_ANTES_DESPUES_LIMPIEZA.md`
+
+**Nota sobre preprocesamiento:**
+> **Limpieza de oraciones duplicadas** (Nov 2025): Se removieron 43,938 oraciones duplicadas (52.7% de textos afectados, reducción 40.3% de caracteres). Los resultados ML se mantuvieron **idénticos** (TF-IDF 0.755, BETO 0.742), validando que las repeticiones eran ruido artificial. Rule-based mejoró ligeramente (+1.4%). Ver `COMPARACION_ANTES_DESPUES_LIMPIEZA.md` para análisis detallado.
 
 ---
 
