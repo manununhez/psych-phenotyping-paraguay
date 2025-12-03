@@ -1,23 +1,11 @@
 # ============================================================
 # DATOS SENSIBLES (pacientes y resultados)
 # ============================================================
-# Ignorar todos los archivos CSV con datos de pacientes
-data/*.csv
-data/*.xlsx
-data/*.json
+# Ignorar TODO el contenido de data/
+data/*
 
 # Excepción: mantener README de documentación
 !data/README.md
-
-# Splits generados (pueden regenerarse con 02_create_splits.ipynb)
-data/splits/
-
-# Figuras generadas (pueden regenerarse)
-data/figs/
-
-data/planilla_validacion/
-
-data/cv_results/
 
 # ============================================================
 # PROYECTOS EXTERNOS / FORKS

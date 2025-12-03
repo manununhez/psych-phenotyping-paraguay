@@ -198,7 +198,7 @@ def validate_splits_exist(splits_path):
         >>> validate_splits_exist(Path('data/splits'))
         # Si falta algún archivo, lanza error con mensaje claro
     """
-    required_files = ['dataset_base.csv', 'train_indices.csv', 'val_indices.csv']
+    required_files = ['dataset_base.csv', 'train_indices.csv', 'dev_indices.csv', 'test_indices.csv']
     missing = [f for f in required_files if not (splits_path / f).exists()]
     
     if missing:
@@ -262,19 +262,20 @@ def validate_file_exists(filepath, error_message=None):
 
 def load_splits(splits_path):
     """
-    Carga los 3 archivos de splits de una vez.
+    Carga los 4 archivos de splits de una vez (3-way split).
     
     Args:
         splits_path (Path): Ruta a la carpeta de splits
     
     Returns:
-        tuple: (dataset_base, train_indices, val_indices)
+        tuple: (dataset_base, train_indices, dev_indices, test_indices)
             - dataset_base: DataFrame completo con row_id
             - train_indices: Array de row_ids para train
-            - val_indices: Array de row_ids para val
+            - dev_indices: Array de row_ids para dev
+            - test_indices: Array de row_ids para test
     
     Ejemplo:
-        >>> ds_base, train_ids, val_ids = load_splits(SPLITS_PATH)
+        >>> ds_base, train_ids, dev_ids, test_ids = load_splits(SPLITS_PATH)
         >>> df_train = ds_base[ds_base['row_id'].isin(train_ids)]
     """
     # Validar que existan
@@ -283,9 +284,83 @@ def load_splits(splits_path):
     # Cargar archivos
     dataset_base = pd.read_csv(splits_path / 'dataset_base.csv')
     train_indices = pd.read_csv(splits_path / 'train_indices.csv')['row_id'].values
-    val_indices = pd.read_csv(splits_path / 'val_indices.csv')['row_id'].values
+    dev_indices = pd.read_csv(splits_path / 'dev_indices.csv')['row_id'].values
+    test_indices = pd.read_csv(splits_path / 'test_indices.csv')['row_id'].values
     
-    return dataset_base, train_indices, val_indices
+    return dataset_base, train_indices, dev_indices, test_indices
+
+
+# ============================================================
+# METRICAS Y EVALUACION
+# ============================================================
+
+from sklearn.metrics import classification_report, confusion_matrix, f1_score, precision_score, recall_score
+from sklearn.model_selection import StratifiedGroupKFold
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+def get_cv_splitter(n_splits=5, random_state=42):
+    """
+    Retorna el splitter estándar para validación cruzada.
+    Usa StratifiedGroupKFold para respetar la estructura de pacientes.
+    
+    Args:
+        n_splits (int): Número de folds (default=5)
+        random_state (int): Semilla aleatoria (default=42)
+        
+    Returns:
+        StratifiedGroupKFold: Objeto splitter configurado
+    """
+    return StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+
+def calculate_metrics(y_true, y_pred, labels=['ansiedad', 'depresion']):
+    """
+    Calcula métricas clave para evaluación.
+    
+    Args:
+        y_true (list/array): Etiquetas reales
+        y_pred (list/array): Etiquetas predichas
+        labels (list): Lista de etiquetas esperadas
+        
+    Returns:
+        dict: Diccionario con métricas (f1, precision, recall, report)
+    """
+    metrics = {
+        'f1_macro': f1_score(y_true, y_pred, average='macro', zero_division=0),
+        'precision_macro': precision_score(y_true, y_pred, average='macro', zero_division=0),
+        'recall_macro': recall_score(y_true, y_pred, average='macro', zero_division=0),
+        'report': classification_report(y_true, y_pred, zero_division=0),
+        'report_dict': classification_report(y_true, y_pred, zero_division=0, output_dict=True)
+    }
+    return metrics
+
+def plot_confusion_matrix(y_true, y_pred, labels=['ansiedad', 'depresion'], title="Matriz de Confusión", save_path=None):
+    """
+    Grafica y guarda la matriz de confusión.
+    
+    Args:
+        y_true (list/array): Etiquetas reales
+        y_pred (list/array): Etiquetas predichas
+        labels (list): Lista de etiquetas para los ejes
+        title (str): Título del gráfico
+        save_path (Path, optional): Ruta para guardar la imagen
+    """
+    cm = confusion_matrix(y_true, y_pred, labels=labels)
+    
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=labels, yticklabels=labels)
+    plt.title(title)
+    plt.ylabel('Real')
+    plt.xlabel('Predicho')
+    
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+        print(f"Gráfico guardado en: {save_path}")
+    
+    plt.show()
+    plt.close()
 
 
 # ============================================================
@@ -295,7 +370,6 @@ def load_splits(splits_path):
 def print_module_info():
     """
     Imprime información sobre las funciones disponibles en este módulo.
-    Útil para debugging y documentación rápida.
     """
     print(" Módulo: utils_shared.py")
     print("\n Funciones disponibles:")
@@ -311,11 +385,14 @@ def print_module_info():
     print("    - validate_dataset_columns(df, cols): Verifica columnas")
     print("    - validate_file_exists(path): Verifica archivo")
     print("\n  Carga:")
-    print("    - load_splits(path): Carga splits de una vez")
+    print("    - load_splits(path): Carga splits (train/dev/test)")
+    print("\n  Métricas y Visualización:")
+    print("    - calculate_metrics(y_true, y_pred): Calcula F1, Precision, Recall")
+    print("    - plot_confusion_matrix(y_true, y_pred): Grafica matriz de confusión")
     print("\n[INFO] Uso:")
-    print("    from utils_shared import setup_paths, load_splits")
+    print("    from utils_shared import setup_paths, load_splits, calculate_metrics")
     print("    paths = setup_paths()")
-    print("    dataset, train_ids, val_ids = load_splits(paths['SPLITS_PATH'])")
+    print("    ds, train_ids, dev_ids, test_ids = load_splits(paths['SPLITS_PATH'])")
 
 
 if __name__ == "__main__":
