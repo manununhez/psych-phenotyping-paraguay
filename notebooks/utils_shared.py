@@ -294,7 +294,7 @@ def load_splits(splits_path):
 # METRICAS Y EVALUACION
 # ============================================================
 
-from sklearn.metrics import classification_report, confusion_matrix, f1_score, precision_score, recall_score
+from sklearn.metrics import classification_report, confusion_matrix, f1_score, precision_score, recall_score, accuracy_score
 from sklearn.model_selection import StratifiedGroupKFold
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -330,6 +330,7 @@ def calculate_metrics(y_true, y_pred, labels=['ansiedad', 'depresion']):
         'f1_macro': f1_score(y_true, y_pred, average='macro', zero_division=0),
         'precision_macro': precision_score(y_true, y_pred, average='macro', zero_division=0),
         'recall_macro': recall_score(y_true, y_pred, average='macro', zero_division=0),
+        'accuracy': accuracy_score(y_true, y_pred),
         'report': classification_report(y_true, y_pred, zero_division=0),
         'report_dict': classification_report(y_true, y_pred, zero_division=0, output_dict=True)
     }
