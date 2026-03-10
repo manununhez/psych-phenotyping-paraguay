@@ -1,68 +1,58 @@
-# Fenotipado Psiquiátrico en Notas Clínicas (Paraguay)
+# Fenotipado Psiquiátrico Paraguay
 
-Este repositorio contiene el código, datos y documentación para el proyecto de tesis sobre **Extracción Automática de Fenotipos Psiquiátricos en Notas Clínicas del Español Paraguayo**.
+Repositorio de tesis para fenotipado psiquiátrico en notas clínicas IPS (Paraguay).
 
-El proyecto implementa y compara modelos de Procesamiento de Lenguaje Natural (NLP) para clasificar notas clínicas en dos categorías diagnósticas: **Ansiedad** y **Depresión**.
+## Alcance científico congelado
+- Sistema de reglas y lexicones congelados: `Concept_CO`, `Concept_PY`, `Concept_PY_Lexicon`.
+- Arquitectura híbrida congelada: reglas + LLM semántico + `embeddings` BETO + sentimiento + `RandomForest` / `XGBoost`.
+- Clases objetivo congeladas: `ansiedad`, `depresión`, `comorbilidad`.
+- Split obligatorio: `patient-level split`.
+- `late fusion` congelada: `feat_X = max(rule_X, llm_X)`.
 
-## 🚀 Resumen de Resultados
-
-El mejor modelo (**TF-IDF + LinearSVC**) alcanzó un **F1-Macro de 0.850**, demostrando que es posible detectar patologías psiquiátricas con alta precisión utilizando características léxicas, incluso en un corpus de tamaño limitado.
-
-| Modelo | F1-Macro | Descripción |
-|--------|----------|-------------|
-| **TF-IDF + LinearSVC** | **0.850** | **Recomendado.** Eficiente, interpretable y robusto. |
-| BETO (Transformer) | 0.821 | Competitivo, pero mayor costo computacional. |
-| Rule-Based | 0.511 | Limitado por brecha de vocabulario dialectal. |
-
-## 📂 Estructura del Repositorio
-
-```
+## Estructura activa mínima
+```text
 .
-├── data/                   # Datos (splits, figuras, resultados)
-├── docs/                   # Documentación del proyecto
-│   ├── METHODOLOGY.md      # Detalles del dataset y modelos
-│   ├── RESULTS_ANALYSIS.md # Análisis detallado de rendimiento
-│   ├── VALIDATION_STRATEGY.md # Protocolo de validación clínica
-│   └── LIMITATIONS.md      # Limitaciones y trabajo futuro
-├── notebooks/              # Notebooks de análisis (Jupyter)
-│   ├── 00_setup.ipynb      # Configuración inicial
-│   ├── 01_eda.ipynb        # Análisis Exploratorio de Datos
-│   ├── 02_create_splits.ipynb # Partición Train/Dev/Test
-│   ├── 03_rule_based_denoising.ipynb # Limpieza y Denoising
-│   ├── 03_preparacion_validacion_psiquiatras.ipynb # Validación Clínica
-│   ├── 04_baseline_dummy.ipynb # Baselines Triviales
-│   ├── 04_baseline_tfidf.ipynb # Modelo TF-IDF
-│   ├── 04_baseline_transformers.ipynb # Modelos BETO/RoBERTa
-│   └── 05_comparacion_resultados.ipynb # Comparativa Final
-└── Spanish_Psych_Phenotyping_PY/ # Fork del sistema base (reglas)
+├── notebooks/
+│   ├── pipeline/
+│   ├── analysis/
+│   ├── appendix/
+│   ├── README.md
+│   └── utils_shared.py
+├── scripts/
+│   └── README.md
+├── docs/
+│   ├── GUIA_EJECUCION.md
+│   ├── METODOLOGIA.md
+│   ├── ESTRATEGIA_VALIDACION.md
+│   └── LIMITACIONES.md
+└── archivo/
+    ├── documentacion_historica/
+    ├── notebooks_legado/
+    ├── notebooks_apendice/
+    └── interno/
 ```
 
-## 🛠️ Instalación y Uso
+## Flujo operativo de notebooks
+1. `notebooks/pipeline/01_datos_eda_limpieza.ipynb`
+2. `notebooks/pipeline/02_patient_level_split.ipynb`
+3. `notebooks/pipeline/03_denoising_reglas_core.ipynb`
+4. `notebooks/pipeline/04a_linea_base_dummy.ipynb`
+5. `notebooks/pipeline/04b_linea_base_tfidf.ipynb`
+6. `notebooks/pipeline/04c_linea_base_transformers.ipynb`
+7. `notebooks/analysis/05_brecha_lexica_co_core_py.ipynb`
+8. `notebooks/pipeline/06_ingenieria_features_hibridas.ipynb`
+9. `notebooks/pipeline/07_entrenamiento_modelos_hibridos.ipynb`
+10. `notebooks/pipeline/08_resultados_hibrido_vs_lineas_base.ipynb`
+11. `notebooks/analysis/09_analisis_errores_hibrido.ipynb`
 
-1.  **Clonar el repositorio:**
-    ```bash
-    git clone <url-repo>
-    cd psych-phenotyping-paraguay
-    ```
+## Artefactos exportados clave
+- Características híbridas: `data/processed/fe_<run_id>_{core,py}/features_{core,py}.parquet`.
+- Entrenamiento: `data/outputs/train_<run_id>/comparacion_modelos_<split>.csv`, predicciones, figuras y modelos.
+- Resultados consolidados: `data/outputs/results_<run_id>/tabla_comparativa_modelos.csv` y figuras.
+- Análisis de errores: `data/outputs/error_analysis_<run_id>/`.
 
-2.  **Configurar entorno:**
-    ```bash
-    python -m venv .venv
-    source .venv/bin/activate
-    pip install -r requirements.txt
-    ```
-
-3.  **Ejecutar pipeline:**
-    Siga el orden numérico de los notebooks en `notebooks/`. Consulte `docs/EXECUTION_GUIDE.md` para más detalles.
-
-## 📄 Documentación Clave
-
-*   **[Metodología](docs/METHODOLOGY.md):** Descripción del corpus, preprocesamiento y modelos.
-*   **[Análisis de Resultados](docs/RESULTS_ANALYSIS.md):** Comparación estadística y análisis de errores.
-*   **[Estrategia de Validación](docs/VALIDATION_STRATEGY.md):** Protocolo para validación con expertos clínicos.
-*   **[Limitaciones](docs/LIMITATIONS.md):** Restricciones del estudio y sesgos identificados.
-
-## 👥 Créditos
-
-Proyecto desarrollado como parte de tesis de grado. Basado en el trabajo *Spanish Psych Phenotyping* (Colombia).
-Datos provistos por el Instituto de Previsión Social (IPS), Paraguay.
+## Documentación activa
+- Guía de ejecución: `docs/GUIA_EJECUCION.md`.
+- Metodología: `docs/METODOLOGIA.md`.
+- Validación clínica: `docs/ESTRATEGIA_VALIDACION.md`.
+- Limitaciones: `docs/LIMITACIONES.md`.

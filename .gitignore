@@ -1,28 +1,44 @@
 # ============================================================
-# DATOS SENSIBLES (pacientes y resultados)
+# DATASETS SENSIBLES Y ARTEFACTOS GENERADOS
 # ============================================================
-# Ignorar TODO el contenido de data/
+# Protección amplia de datos clínicos en `data/`
 data/*
+!data/README.md
 
-# Excepción: mantener README de documentación
+# Datos clínicos locales (no versionar)
+data/ips_raw.csv
+data/ips_clean.csv
+data/IPS_validacion.xlsx
+
+# Salidas del pipeline (preferencia: ignorar por carpetas de salida)
+data/splits/
+data/processed/
+data/outputs/
+data/figs/
+data/checkpoints/
+data/logs/
+data/input_for_gemini.json
+
+# Mantener documentación interna de data
 !data/README.md
 
 # ============================================================
-# PROYECTOS EXTERNOS / FORKS
+# SCRIPTS: SALIDAS Y TEMPORALES
 # ============================================================
-# Fork del proyecto colombiano (tiene su propio repo git)
-Spanish_Psych_Phenotyping_PY/
+scripts/data/outputs/
+scripts/audit/_tmp_freeze_repo/
+scripts/freeze_report.json
+scripts/*FREEZE*.zip
+scripts.zip
 
 # ============================================================
-# ENTORNOS VIRTUALES Y DEPENDENCIAS
+# ENTORNOS Y DEPENDENCIAS
 # ============================================================
-# Entorno virtual Python
 .venv/
 venv/
 env/
 ENV/
 
-# Python cache y bytecode
 __pycache__/
 *.py[cod]
 *.pyc
@@ -30,89 +46,60 @@ __pycache__/
 *.pyd
 .Python
 
-# Egg files
 *.egg
 *.egg-info/
 dist/
 build/
 
 # ============================================================
-# NOTEBOOKS Y JUPYTER
+# NOTEBOOKS / JUPYTER
 # ============================================================
-# Checkpoints de Jupyter
 .ipynb_checkpoints/
 */.ipynb_checkpoints/*
-
-# Outputs de notebooks (pueden regenerarse)
 notebooks/outputs/
 notebooks/runs/
 outputs/
 runs/
 
 # ============================================================
-# MODELOS Y CHECKPOINTS
+# MODELOS Y BINARIOS
 # ============================================================
-# Checkpoints de BETO/transformers
-data/beto_ckpt/
 *.pt
 *.pth
 *.bin
 *.ckpt
-
-# Cache de transformers
 transformers_cache/
 .cache/
 
 # ============================================================
-# SISTEMA OPERATIVO
+# IDEs / SO
 # ============================================================
-# macOS
 .DS_Store
 .AppleDouble
 .LSOverride
-
-# Windows
 Thumbs.db
 ehthumbs.db
 Desktop.ini
-
-# Linux
 *~
 .directory
 
-# ============================================================
-# IDEs Y EDITORES
-# ============================================================
-# VSCode
 .vscode/
 *.code-workspace
-
-# PyCharm
 .idea/
-
-# Jupyter
 .jupyter/
 
 # ============================================================
-# OTROS ARCHIVOS TEMPORALES
+# LOGS / TEST / TEMP
 # ============================================================
-# Variables de entorno
 .env
 .env.local
-
-# Logs
 *.log
 logs/
-
-# Testing
 .pytest_cache/
 .coverage
 htmlcov/
 .tox/
-
-# Archivos temporales generales
 *.tmp
 *.temp
 *.swp
 *.swo
-*~
