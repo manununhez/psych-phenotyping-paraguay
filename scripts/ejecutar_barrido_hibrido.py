@@ -176,6 +176,9 @@ def normalizar_fila_hibrida(
         "llm_activo": row.get("llm_activo", np.nan),
         "sentimiento_activo": row.get("sentimiento_activo", np.nan),
         "beto_activo": row.get("beto_activo", np.nan),
+        "contexto_activo": row.get("contexto_activo", row.get("beto_activo", np.nan)),
+        "text_backbone": row.get("text_backbone", np.nan),
+        "context_prefixes": row.get("context_prefixes", np.nan),
         "template_activo": row.get("template_activo", np.nan),
         "feat_activo": row.get("feat_activo", np.nan),
         "reglas_activas": row.get("reglas_activas", np.nan),
@@ -358,6 +361,13 @@ def filas_baselines() -> list[dict[str, Any]]:
             "llm_activo": np.nan,
             "sentimiento_activo": np.nan,
             "beto_activo": np.nan,
+            "contexto_activo": np.nan,
+            "text_backbone": (
+                "beto"
+                if modelo == "BETO"
+                else ("roberta_clinical" if modelo == "ROBERTA_CLINICAL" else ("roberta_biomedical" if modelo == "ROBERTA_BIOMEDICAL" else np.nan))
+            ),
+            "context_prefixes": np.nan,
             "template_activo": np.nan,
             "feat_activo": np.nan,
             "reglas_activas": np.nan,
@@ -912,6 +922,7 @@ def main() -> None:
     cols_master = [
         "source", "nombre_variante", "run_id_features", "run_id_features_core", "run_id_features_py",
         "run_id_train", "perfil", "modelo", "llm_activo", "sentimiento_activo", "beto_activo",
+        "contexto_activo", "text_backbone", "context_prefixes",
         "template_activo", "feat_activo", "reglas_activas", "medicacion_activa", "seed", "n_features",
         "n_train", "n_eval", "macro_f1", "balanced_accuracy", "precision_macro", "recall_macro",
         "f1_ansiedad", "f1_depresion", "soporte_ansiedad", "soporte_depresion", "eval_split", "fase",

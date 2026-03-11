@@ -5,7 +5,17 @@ Repositorio de investigación para clasificación probabilística de notas clín
 ## Objetivo actual
 - Tarea supervisada binaria: `ansiedad` vs `depresion`.
 - En esta fase no existe clase explícita de `comorbilidad`.
-- Arquitectura híbrida congelada: reglas clínicas + normalización semántica acotada con LLM + `embeddings` BETO + sentimiento + `RandomForest`/`XGBoost`.
+- Arquitectura híbrida congelada: reglas clínicas + normalización semántica acotada con LLM + `embeddings` contextuales (`ctx_<backbone>_*`) + sentimiento + `RandomForest`/`XGBoost`.
+
+## Selección de backbone contextual
+- `04c_linea_base_transformers.ipynb` define explícitamente la comparación de baselines Transformer en `dev` y exporta:
+  - `data/outputs/transformer_baseline_selection_<timestamp>.json`
+  - `data/outputs/transformer_baseline_selection_latest.json`
+- `06+` consume ese artefacto para definir el backbone contextual por defecto (`FE_TEXT_BACKBONE=auto`), con posibilidad de override explícito.
+- El backbone del híbrido no debe asumirse por defecto; debe justificarse con evidencia experimental (`04c` + comparación controlada de backbones).
+
+Cadena de trazabilidad (sin saltos):
+`04c (selección baseline Transformer)` -> `06 (features con backbone configurable)` -> `07 (entrenamiento con metadata de backbone)` -> `scripts/comparar_backbones_hibrido.py` -> `scripts/audit/registrar_artefactos_backbone.py` -> `09b (cierre formal en dev)`.
 
 ## Estado metodológico actual
 - Selección y ablación cerradas en `dev`.
@@ -34,9 +44,10 @@ Repositorio de investigación para clasificación probabilística de notas clín
 7. `notebooks/analysis/05_brecha_lexica_co_core_py.ipynb`
 8. `notebooks/pipeline/06_ingenieria_features_hibridas.ipynb`
 9. `notebooks/pipeline/07_entrenamiento_modelos_hibridos.ipynb`
-10. `notebooks/pipeline/08_resultados_hibrido_vs_lineas_base.ipynb`
-11. `notebooks/pipeline/09b_cierre_modelos_dev.ipynb`
-12. `notebooks/analysis/09_analisis_errores_hibrido.ipynb`
+10. `scripts/comparar_backbones_hibrido.py` (comparación controlada en `dev`)
+11. `notebooks/pipeline/08_resultados_hibrido_vs_lineas_base.ipynb`
+12. `notebooks/pipeline/09b_cierre_modelos_dev.ipynb`
+13. `notebooks/analysis/09_analisis_errores_hibrido.ipynb`
 
 ## Diferencia entre `dev` y `test`
 - `dev`: comparación de líneas base, barridos, ablaciones y selección del modelo final.
@@ -47,6 +58,7 @@ Repositorio de investigación para clasificación probabilística de notas clín
 Script principal:
 - `python scripts/regenerar_pipeline_desarrollo.py --dry-run`
 - `python scripts/regenerar_pipeline_desarrollo.py`
+- `python scripts/regenerar_pipeline_desarrollo.py --incluir-comparacion-backbones`
 
 Con esto se reproduce el flujo de desarrollo y los artefactos de cierre en `dev`, sin ejecutar `test`.
 La decisión formal del modelo final queda en `notebooks/pipeline/09b_cierre_modelos_dev.ipynb` y también es invocable por `scripts/cerrar_modelos_dev.py`.
@@ -54,6 +66,8 @@ La decisión formal del modelo final queda en `notebooks/pipeline/09b_cierre_mod
 ## Salidas clave
 - Features híbridas: `data/processed/fe_<run_id>_{core,py}/`.
 - Entrenamiento: `data/outputs/train_<run_id>/`.
+- Comparación controlada de backbones: `data/outputs/comparacion_backbones_hibrido_<timestamp>/`.
+- Manifiesto de artefactos de backbone: `data/outputs/backbone_artifacts_manifest_latest.json`.
 - Resultados comparativos: `data/outputs/results_<run_id>/`.
 - Error analysis: `data/outputs/error_analysis_<run_id>/`.
 - Freeze léxico: `data/outputs/freeze_lexico_<timestamp>/`.

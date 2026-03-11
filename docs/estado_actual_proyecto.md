@@ -10,6 +10,8 @@ El proyecto está cerrado metodológicamente en fase de desarrollo (`dev`) y pre
 4. Cierre formal de selección de modelos en `dev` integrado como etapa `09b`.
 5. Lista corta de modelos para `test`.
 6. Auditoría de split con estado `TEST_VIRGEN`.
+7. Integración de selección de baseline Transformer en `04c` con consumo explícito en etapas posteriores.
+8. Backbone contextual configurable en `06/07` (sin hardcode metodológico a BETO).
 
 ## Artefactos clave ya generados
 - Auditoría de test:
@@ -21,6 +23,13 @@ El proyecto está cerrado metodológicamente en fase de desarrollo (`dev`) y pre
   - `data/outputs/freeze_lexico_20260310_232420/`
 - Cierre formal de modelos en `dev`:
   - `data/outputs/cierre_modelos_dev_20260310_233211/`
+- Selección baseline Transformer:
+  - `data/outputs/transformer_baseline_selection_latest.json`
+- Comparación controlada de backbones en híbrido:
+  - `data/outputs/comparacion_backbones_hibrido_<timestamp>/`
+- Manifiesto de trazabilidad de artefactos de backbone:
+  - `data/outputs/backbone_artifacts_manifest_latest.json`
+  - `data/outputs/backbone_artifacts_manifest_latest.md`
 
 ## Qué está pendiente (fase final)
 1. Integrar y ejecutar notebook final de evaluación en `test` (única pasada post-freeze).
@@ -32,6 +41,7 @@ El proyecto está cerrado metodológicamente en fase de desarrollo (`dev`) y pre
 - El mejor desempeño absoluto en `dev` sigue en baselines textuales fuertes; la narrativa del híbrido debe sostenerse en trazabilidad y diseño, no en sobreafirmación de métricas.
 - Cambios en reglas/features antes de `test` invalidan el cierre formal en `dev`.
 - La evidencia actual corresponde a desarrollo; no debe comunicarse como evaluación final externa.
+- Si existen artefactos incompletos de comparación de backbones, deben excluirse del cierre usando el manifiesto de validez, no por borrado manual.
 
 ## Próximo paso recomendado
 Ejecutar la regeneración limpia de desarrollo y, sobre ese estado congelado, preparar la corrida final en `test` con lista corta fija y sin ajustes posteriores.

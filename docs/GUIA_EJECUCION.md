@@ -10,7 +10,7 @@ No incluye:
 
 ```bash
 python scripts/regenerar_pipeline_desarrollo.py --dry-run
-python scripts/regenerar_pipeline_desarrollo.py
+python scripts/regenerar_pipeline_desarrollo.py --incluir-comparacion-backbones
 ```
 
 Wrapper bash opcional:
@@ -53,11 +53,21 @@ Cada corrida deja:
 7. `05_brecha_lexica_co_core_py`
 8. `06_ingenieria_features_hibridas`
 9. `07_entrenamiento_modelos_hibridos`
-10. `08_resultados_hibrido_vs_lineas_base`
-11. `barrido_hibrido_dev`
-12. `freeze_lexico_preliminar`
-13. `09b_cierre_modelos_dev`
-14. `09_analisis_errores_hibrido`
+10. `comparacion_backbones_hibrido` (si se activa `--incluir-comparacion-backbones`)
+11. `08_resultados_hibrido_vs_lineas_base`
+12. `barrido_hibrido_dev`
+13. `freeze_lexico_preliminar`
+14. `manifiesto_artefactos_backbone`
+15. `09b_cierre_modelos_dev`
+16. `09_analisis_errores_hibrido`
+
+## Nota específica sobre backbone
+- `04c` define y exporta la selección del baseline Transformer.
+- `06+` consume esa selección por defecto y permite override explícito por entorno.
+- `09b` utiliza la selección de `04c` y la comparación controlada de backbones (si existe artefacto válido) para fundamentar la decisión final en `dev`.
+
+Cadena operativa recomendada:
+`04c` -> `06` -> `07` -> `scripts/comparar_backbones_hibrido.py` -> `scripts/audit/registrar_artefactos_backbone.py` -> `09b`.
 
 ## Nota metodológica
 La regeneración está diseñada para reproducir el estado de desarrollo y su documentación de cierre en `dev`, sin mezclar decisiones de la fase final.

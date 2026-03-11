@@ -43,7 +43,11 @@ En la estructura vigente:
 ### 6) Baselines Transformers
 - Notebook: `notebooks/pipeline/04c_linea_base_transformers.ipynb`
 - Entradas: split denoised.
-- Salidas: métricas y predicciones contextuales (BETO/Roberta).
+- Salidas:
+  - métricas y predicciones contextuales (`BETO`, `ROBERTA_CLINICAL`, `ROBERTA_BIOMEDICAL`);
+  - artefacto de selección de baseline Transformer en `dev`:
+    - `data/outputs/transformer_baseline_selection_<timestamp>.json`
+    - `data/outputs/transformer_baseline_selection_latest.json`.
 
 ### 7) Análisis de brecha léxica
 - Notebook: `notebooks/analysis/05_brecha_lexica_co_core_py.ipynb`
@@ -52,10 +56,13 @@ En la estructura vigente:
 
 ### 8) Ingeniería de features híbridas
 - Notebook: `notebooks/pipeline/06_ingenieria_features_hibridas.ipynb`
-- Entradas: denoised + reglas + (LLM opcional) + sentimiento + BETO.
+- Entradas: denoised + reglas + (LLM opcional) + sentimiento + backbone contextual configurable.
 - Salidas:
   - `data/processed/fe_<run_id>_core/features_core.parquet`
   - `data/processed/fe_<run_id>_py/features_py.parquet`
+- Nota de método:
+  - `FE_TEXT_BACKBONE=auto` consume la selección de `04c`;
+  - también admite override explícito (`beto`, `roberta_clinical`, `roberta_biomedical`).
 
 ### 9) Entrenamiento híbrido
 - Notebook: `notebooks/pipeline/07_entrenamiento_modelos_hibridos.ipynb`
@@ -64,14 +71,22 @@ En la estructura vigente:
   - `data/outputs/train_<run_id>/comparacion_modelos_dev.csv`
   - reportes, predicciones, modelos y artefactos de ablación.
 
-### 10) Consolidación de resultados
+### 10) Comparación controlada de backbones en el híbrido
+- Script: `scripts/comparar_backbones_hibrido.py`
+- Entradas: notebooks 06/07 + split `dev` + selección Transformer de `04c`.
+- Salidas:
+  - `data/outputs/comparacion_backbones_hibrido_<timestamp>/comparacion_backbones_hibrido.csv`
+  - `comparacion_backbones_hibrido.json`
+  - `resumen_backbones_hibrido.md`.
+
+### 11) Consolidación de resultados
 - Notebook: `notebooks/pipeline/08_resultados_hibrido_vs_lineas_base.ipynb`
 - Entradas: salidas de líneas base + salidas de entrenamiento híbrido.
 - Salidas:
   - `data/outputs/results_<run_id>/tabla_comparativa_modelos.csv`
   - matrices y gráficos comparativos.
 
-### 11) Barrido híbrido en dev
+### 12) Barrido híbrido en dev
 - Script: `scripts/ejecutar_barrido_hibrido.py`
 - Entradas: features híbridas + referencia de entrenamiento en dev.
 - Salidas:
@@ -82,16 +97,26 @@ En la estructura vigente:
 
 ## Artefactos documentales de cierre en dev
 
-### 12) Freeze léxico preliminar
+### 13) Freeze léxico preliminar
 - Script: `scripts/audit/generar_freeze_lexico.py`
 - Salida: `data/outputs/freeze_lexico_<timestamp>/`.
 
-### 13) Cierre formal de selección en dev
+### 14) Manifiesto de artefactos de backbone
+- Script: `scripts/audit/registrar_artefactos_backbone.py`
+- Salida:
+  - `data/outputs/backbone_artifacts_manifest_<timestamp>.json`
+  - `data/outputs/backbone_artifacts_manifest_latest.json`
+  - `data/outputs/backbone_artifacts_manifest_latest.md`.
+
+### 15) Cierre formal de selección en dev
 - Notebook: `notebooks/pipeline/09b_cierre_modelos_dev.ipynb`
 - Script reutilizable invocado: `scripts/cerrar_modelos_dev.py`
 - Salida: `data/outputs/cierre_modelos_dev_<timestamp>/`.
+- Nota de método:
+  - `09b` consume explícitamente selección Transformer (`04c`) y comparación controlada de backbones cuando hay artefactos válidos;
+  - no asume BETO de forma implícita.
 
-### 14) Análisis de errores
+### 16) Análisis de errores
 - Notebook: `notebooks/analysis/09_analisis_errores_hibrido.ipynb`
 - Entradas: predicciones y métricas consolidadas.
 - Salidas:

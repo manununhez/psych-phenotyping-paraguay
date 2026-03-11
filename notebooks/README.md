@@ -38,6 +38,7 @@ Cada notebook operativo declara al inicio:
 - notebook siguiente
 
 ## Artefactos esperados por etapa
+- 04c: `data/outputs/transformer_baseline_selection_<timestamp>.json` y `data/outputs/transformer_baseline_selection_latest.json`.
 - 06: `data/processed/fe_<run_id>_{core,py}/features_{core,py}.parquet`.
 - 07: `data/outputs/train_<run_id>/` con métricas, predicciones, figuras y modelos.
 - 08: `data/outputs/results_<run_id>/` con tablas y figuras de comparación.
@@ -48,10 +49,15 @@ Cada notebook operativo declara al inicio:
 - 06 (`pipeline/06_ingenieria_features_hibridas.ipynb`):
   - `FE_USE_LLM = auto | 1 | 0`
   - `FE_COMPUTE_SENTIMENT = 1 | 0`
-  - `FE_COMPUTE_BETO = 1 | 0`
+  - `FE_COMPUTE_CONTEXT = 1 | 0` (alias legacy: `FE_COMPUTE_BETO`)
+  - `FE_TEXT_BACKBONE = auto | beto | roberta_clinical | roberta_biomedical`
   - `FE_RUN_ID`, `FE_CACHE_KEY`
 - 07 (`pipeline/07_entrenamiento_modelos_hibridos.ipynb`):
   - `TRAIN_MODELS`, `TRAIN_PROFILES`, `TRAIN_SEED`, `TRAIN_EVAL_ON`
-  - `TRAIN_USE_LLM`, `TRAIN_USE_BETO`, `TRAIN_USE_TEMPLATE`
+  - `TRAIN_USE_LLM`, `TRAIN_USE_CONTEXT` (alias legacy: `TRAIN_USE_BETO`), `TRAIN_USE_TEMPLATE`
   - `TRAIN_USE_FEAT`, `TRAIN_USE_RULES`, `TRAIN_USE_MEDICATION`, `TRAIN_USE_SENTIMENT`
   - `TRAIN_DROP_COLUMNS`, `TRAIN_DROP_PREFIXES`, `TRAIN_KEEP_PREFIXES`
+
+## Nota metodológica de backbone
+- `04c` es la etapa explícita de selección del baseline Transformer en `dev`.
+- `06+` no debe hardcodear BETO como única opción; usa backbone contextual configurable y trazable en metadatos.

@@ -96,6 +96,13 @@ STEPS: tuple[Step, ...] = (
         ("data/outputs/train_*/comparacion_modelos_dev.csv",),
     ),
     Step(
+        "comparacion_backbones_hibrido",
+        "script",
+        "scripts/comparar_backbones_hibrido.py",
+        "Comparación controlada de backbones contextuales en el híbrido (dev).",
+        ("data/outputs/comparacion_backbones_hibrido_*/comparacion_backbones_hibrido.csv",),
+    ),
+    Step(
         "08_resultados_hibrido_vs_lineas_base",
         "notebook",
         "notebooks/pipeline/08_resultados_hibrido_vs_lineas_base.ipynb",
@@ -115,6 +122,13 @@ STEPS: tuple[Step, ...] = (
         "scripts/audit/generar_freeze_lexico.py",
         "Freeze léxico preliminar (sin tocar test).",
         ("data/outputs/freeze_lexico_*/freeze_lexico_resumen.md",),
+    ),
+    Step(
+        "manifiesto_artefactos_backbone",
+        "script",
+        "scripts/audit/registrar_artefactos_backbone.py",
+        "Auditoría no destructiva y trazabilidad de artefactos de backbone.",
+        ("data/outputs/backbone_artifacts_manifest_latest.json",),
     ),
     Step(
         "09b_cierre_modelos_dev",
@@ -198,6 +212,17 @@ def _build_command(step: Step, repo: Path) -> list[str]:
                 "--top-c",
                 "3",
             ]
+        if step.step_id == "comparacion_backbones_hibrido":
+            return [
+                "python",
+                step.path,
+                "--backbones",
+                "beto,roberta_clinical",
+                "--incluir-biomedical",
+                "0",
+            ]
+        if step.step_id == "manifiesto_artefactos_backbone":
+            return ["python", step.path]
         return ["python", step.path]
     raise ValueError(f"Tipo de paso no soportado: {step.tipo}")
 
@@ -227,10 +252,10 @@ def _latest_feature_base(repo: Path) -> str | None:
     return name
 
 
-def _slice_steps(desde: str | None, hasta: str | None) -> list[Step]:
-    ids = [s.step_id for s in STEPS]
+def _slice_steps(desde: str | None, hasta: str | None, steps: Sequence[Step]) -> list[Step]:
+    ids = [s.step_id for s in steps]
     i_start = 0
-    i_end = len(STEPS) - 1
+    i_end = len(steps) - 1
     if desde:
         if desde not in ids:
             raise ValueError(f"--desde inválido: {desde}")
@@ -241,7 +266,7 @@ def _slice_steps(desde: str | None, hasta: str | None) -> list[Step]:
         i_end = ids.index(hasta)
     if i_start > i_end:
         raise ValueError("--desde está después de --hasta")
-    return list(STEPS[i_start : i_end + 1])
+    return list(steps[i_start : i_end + 1])
 
 
 def _cleanup_outputs(repo: Path, dry_run: bool) -> list[str]:
@@ -252,7 +277,10 @@ def _cleanup_outputs(repo: Path, dry_run: bool) -> list[str]:
         "data/outputs/error_analysis_*",
         "data/outputs/barridos_hibridos/20*",
         "data/outputs/freeze_lexico_*",
+        "data/outputs/backbone_artifacts_manifest_*",
+        "data/outputs/comparacion_backbones_hibrido_latest.json",
         "data/outputs/cierre_modelos_dev_*",
+        "data/outputs/comparacion_backbones_hibrido_*",
         "data/outputs/regeneracion_desarrollo_*",
     ]
     removed: list[str] = []
@@ -301,6 +329,11 @@ def main() -> int:
         help="Limpia outputs de desarrollo antes de ejecutar.",
     )
     parser.add_argument(
+        "--incluir-comparacion-backbones",
+        action="store_true",
+        help="Incluye la comparación controlada de backbones contextuales en el flujo.",
+    )
+    parser.add_argument(
         "--confirmar-limpieza",
         action="store_true",
         help="Confirmación explícita requerida para limpiar outputs.",
@@ -318,7 +351,11 @@ def main() -> int:
             "Para usar --limpiar-outputs debes agregar --confirmar-limpieza."
         )
 
-    selected_steps = _slice_steps(args.desde or None, args.hasta or None)
+    steps = list(STEPS)
+    if not args.incluir_comparacion_backbones:
+        steps = [s for s in steps if s.step_id != "comparacion_backbones_hibrido"]
+
+    selected_steps = _slice_steps(args.desde or None, args.hasta or None, steps=steps)
     git_info = _git_info(repo)
     env_info = _relevant_env()
 
@@ -345,12 +382,18 @@ def main() -> int:
                 encoding="utf-8",
             )
         else:
+            step_env = os.environ.copy()
+            if step.step_id == "08_resultados_hibrido_vs_lineas_base":
+                # Evita que 08 tome por accidente corridas `train_backbone_*` de comparación controlada.
+                canonical_train = _latest_train_run(repo)
+                if canonical_train:
+                    step_env["RESULTS_TRAIN_RUN_ID"] = canonical_train
             proc = subprocess.run(
                 cmd,
                 cwd=repo,
                 text=True,
                 capture_output=True,
-                env=os.environ.copy(),
+                env=step_env,
             )
             status = "OK" if proc.returncode == 0 else "ERROR"
             returncode = proc.returncode
@@ -409,7 +452,9 @@ def main() -> int:
         },
         "documentacion_generada_por_pipeline": [
             "data/outputs/freeze_lexico_<timestamp>/freeze_lexico_resumen.md",
+            "data/outputs/backbone_artifacts_manifest_latest.md",
             "data/outputs/cierre_modelos_dev_<timestamp>/decision_modelo_final.md",
+            "data/outputs/comparacion_backbones_hibrido_<timestamp>/resumen_backbones_hibrido.md",
         ],
     }
 

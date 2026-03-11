@@ -22,11 +22,184 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+BACKBONE_TO_MODEL = {
+    "beto": "BETO",
+    "roberta_clinical": "ROBERTA_CLINICAL",
+    "roberta_biomedical": "ROBERTA_BIOMEDICAL",
+}
+
+VALID_TRANSFORMER_MODELS = set(BACKBONE_TO_MODEL.values())
+
 
 def _find_latest_dir(base: Path, prefix: str) -> Path | None:
     pattern = f"{prefix}_*" if prefix else "*"
     candidates = sorted(p for p in base.glob(pattern) if p.is_dir())
     return candidates[-1] if candidates else None
+
+
+def _safe_json(path: Path) -> tuple[dict | None, str | None]:
+    try:
+        if not path.exists():
+            return None, "no_existe"
+        if path.stat().st_size == 0:
+            return None, "vacio"
+        return json.loads(path.read_text(encoding="utf-8")), None
+    except Exception as e:
+        return None, f"json_invalido: {e}"
+
+
+def _normalizar_modelo_transformer(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+    s_up = s.upper()
+    if s_up in VALID_TRANSFORMER_MODELS:
+        return s_up
+    s_low = s.lower()
+    return BACKBONE_TO_MODEL.get(s_low)
+
+
+def _resolver_seleccion_transformer(outputs_dir: Path) -> dict:
+    manifest_latest = outputs_dir / "backbone_artifacts_manifest_latest.json"
+    latest_sel = outputs_dir / "transformer_baseline_selection_latest.json"
+    candidatos: list[tuple[str, Path]] = []
+
+    manifest_payload, _ = _safe_json(manifest_latest)
+    if manifest_payload:
+        sel = manifest_payload.get("latest_valid_selection", {}) or {}
+        p = sel.get("ruta")
+        if p:
+            candidatos.append(("manifest", Path(p)))
+
+    if latest_sel.exists():
+        candidatos.append(("latest", latest_sel))
+
+    for p in sorted(outputs_dir.glob("transformer_baseline_selection_*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
+        if p.name == "transformer_baseline_selection_latest.json":
+            continue
+        candidatos.append(("scan", p))
+
+    vistos = set()
+    for fuente, path in candidatos:
+        key = str(path.resolve()) if path.exists() else str(path)
+        if key in vistos:
+            continue
+        vistos.add(key)
+
+        payload, err = _safe_json(path)
+        if payload is None:
+            continue
+        modelo = _normalizar_modelo_transformer(
+            ((payload.get("mejor_transformer_baseline", {}) or {}).get("modelo"))
+        )
+        if not modelo:
+            continue
+        return {
+            "valido": True,
+            "fuente": fuente,
+            "path": str(path),
+            "modelo": modelo,
+            "payload": payload,
+            "error": None,
+        }
+
+    return {
+        "valido": False,
+        "fuente": None,
+        "path": None,
+        "modelo": None,
+        "payload": {},
+        "error": "sin_artefacto_valido",
+    }
+
+
+def _resolver_comparacion_backbones(outputs_dir: Path) -> dict:
+    manifest_latest = outputs_dir / "backbone_artifacts_manifest_latest.json"
+    pointer_latest = outputs_dir / "comparacion_backbones_hibrido_latest.json"
+
+    candidatos: list[tuple[str, Path]] = []
+
+    manifest_payload, _ = _safe_json(manifest_latest)
+    if manifest_payload:
+        cmp_info = manifest_payload.get("latest_valid_backbone_comparison", {}) or {}
+        p = cmp_info.get("ruta")
+        if p:
+            candidatos.append(("manifest", Path(p)))
+
+    pointer_payload, _ = _safe_json(pointer_latest)
+    if pointer_payload:
+        cmp_info = pointer_payload.get("latest_valid_backbone_comparison", {}) or {}
+        p = cmp_info.get("ruta")
+        if p:
+            candidatos.append(("pointer", Path(p)))
+
+    for p in sorted(outputs_dir.glob("comparacion_backbones_hibrido_*"), key=lambda x: x.stat().st_mtime, reverse=True):
+        if p.is_dir():
+            candidatos.append(("scan", p))
+
+    vistos = set()
+    for fuente, run_dir in candidatos:
+        if not run_dir.exists() or not run_dir.is_dir():
+            continue
+        key = str(run_dir.resolve())
+        if key in vistos:
+            continue
+        vistos.add(key)
+
+        csv_path = run_dir / "comparacion_backbones_hibrido.csv"
+        json_path = run_dir / "comparacion_backbones_hibrido.json"
+        if not csv_path.exists() or not json_path.exists():
+            continue
+
+        try:
+            df = pd.read_csv(csv_path)
+        except Exception:
+            continue
+        if df.empty or not {"backbone", "macro_f1"}.issubset(df.columns):
+            continue
+
+        dff = df.copy()
+        dff["backbone"] = dff["backbone"].astype(str).str.lower()
+        dff["macro_f1"] = pd.to_numeric(dff["macro_f1"], errors="coerce")
+        dff = dff[dff["backbone"].isin(set(BACKBONE_TO_MODEL.keys()))]
+        dff = dff.dropna(subset=["macro_f1"])
+        if dff.empty:
+            continue
+
+        top = dff.sort_values("macro_f1", ascending=False).iloc[0]
+        best_backbone = str(top["backbone"])
+        best_model = BACKBONE_TO_MODEL.get(best_backbone)
+        best_macro = float(top["macro_f1"])
+        delta_vs_beto = None
+        if (dff["backbone"] == "beto").any():
+            beto_macro = float(dff.loc[dff["backbone"] == "beto", "macro_f1"].iloc[0])
+            delta_vs_beto = best_macro - beto_macro
+
+        return {
+            "valido": True,
+            "fuente": fuente,
+            "run_dir": str(run_dir),
+            "csv_path": str(csv_path),
+            "json_path": str(json_path),
+            "best_backbone": best_backbone,
+            "best_backbone_modelo": best_model,
+            "best_macro_f1": best_macro,
+            "delta_vs_beto": delta_vs_beto,
+        }
+
+    return {
+        "valido": False,
+        "fuente": None,
+        "run_dir": None,
+        "csv_path": None,
+        "json_path": None,
+        "best_backbone": None,
+        "best_backbone_modelo": None,
+        "best_macro_f1": None,
+        "delta_vs_beto": None,
+    }
 
 
 def _minmax(series: pd.Series) -> pd.Series:
@@ -98,6 +271,8 @@ def _aggregate_models(pool: pd.DataFrame) -> pd.DataFrame:
                 "split": "dev",
                 "perfil": rep.get("perfil", np.nan),
                 "modelo": rep.get("modelo", np.nan),
+                "text_backbone": rep.get("text_backbone", np.nan),
+                "context_prefixes": rep.get("context_prefixes", np.nan),
                 "run_id_features": rep.get("run_id_features", np.nan),
                 "run_id_train_referencia": rep.get("run_id_train", np.nan),
                 "fase_referencia": rep.get("fase", np.nan),
@@ -278,13 +453,16 @@ def _apply_rubric(rank_df: pd.DataFrame, top_barrido: int) -> tuple[pd.DataFrame
         - 0.05 * rank_df.loc[is_barrido, "llm_activo"].fillna(0)
     ).clip(lower=0, upper=1)
 
-    only_beto = (
+    contexto_activo = rank_df.get("contexto_activo", rank_df["beto_activo"]).fillna(
+        rank_df["beto_activo"].fillna(0)
+    )
+    only_context = (
         is_barrido
-        & (rank_df["beto_activo"].fillna(0) == 1)
+        & (contexto_activo == 1)
         & (rank_df["reglas_activas"].fillna(0) == 0)
         & (rank_df["feat_activo"].fillna(0) == 0)
     )
-    rank_df.loc[only_beto, "interpretabilidad_aporte"] -= 0.10
+    rank_df.loc[only_context, "interpretabilidad_aporte"] -= 0.10
 
     rank_df.loc[rank_df["source"] == "baseline_texto", "interpretabilidad_aporte"] = (
         rank_df.loc[rank_df["source"] == "baseline_texto", "modelo_variante"]
@@ -309,7 +487,7 @@ def _apply_rubric(rank_df: pd.DataFrame, top_barrido: int) -> tuple[pd.DataFrame
         + 0.06 * rank_df.loc[is_barrido, "medicacion_activa"].fillna(0)
         + 0.04 * rank_df.loc[is_barrido, "llm_activo"].fillna(0)
     )
-    rank_df.loc[only_beto, "penalizacion_riesgo"] += 0.05
+    rank_df.loc[only_context, "penalizacion_riesgo"] += 0.05
 
     rank_df["score_metodologico"] = 0.5 * rank_df["parsimonia"] + 0.5 * rank_df[
         "auditabilidad_clinica"
@@ -332,11 +510,11 @@ def _apply_rubric(rank_df: pd.DataFrame, top_barrido: int) -> tuple[pd.DataFrame
             if (row.get("llm_activo", 0) or 0) >= 1:
                 t.append("llm_sin_ganancia_robusta")
             if (
-                (row.get("beto_activo", 0) or 0) >= 1
+                (row.get("contexto_activo", row.get("beto_activo", 0)) or 0) >= 1
                 and (row.get("reglas_activas", 0) or 0) == 0
                 and (row.get("feat_activo", 0) or 0) == 0
             ):
-                t.append("casi_solo_beto")
+                t.append("casi_solo_contexto")
         elif row["source"] == "baseline_texto":
             if "ROBERTA" in str(row["modelo_variante"]) or "BETO" in str(
                 row["modelo_variante"]
@@ -439,8 +617,45 @@ def main() -> int:
     ).iloc[0]
     hy_final_key = str(hy_final["modelo_variante"])
 
+    transformer_candidates = rank_df[
+        (rank_df["source"] == "baseline_texto")
+        & rank_df["modelo_variante"].astype(str).isin(
+            ["BETO", "ROBERTA_CLINICAL", "ROBERTA_BIOMEDICAL"]
+        )
+    ].copy()
+    best_transformer_name = None
+    if not transformer_candidates.empty:
+        best_transformer_name = str(
+            transformer_candidates.sort_values("macro_f1_mean", ascending=False).iloc[0][
+                "modelo_variante"
+            ]
+        )
+
+    selection_04c = _resolver_seleccion_transformer(outputs_dir)
+    selected_transformer_04c = selection_04c.get("modelo")
+    selection_04c_path = Path(selection_04c["path"]) if selection_04c.get("path") else None
+
+    backbone_cmp = _resolver_comparacion_backbones(outputs_dir)
+    selected_transformer_backbone_cmp = backbone_cmp.get("best_backbone_modelo")
+
+    selected_transformer_final = None
+    selected_transformer_source = None
+    for model, source in [
+        (selected_transformer_backbone_cmp, "comparacion_backbones_hibrido"),
+        (selected_transformer_04c, "seleccion_transformer_04c"),
+        (best_transformer_name, "mejor_transformer_en_tabla"),
+    ]:
+        if not model:
+            continue
+        if (rank_df["modelo_variante"].astype(str) == model).any():
+            selected_transformer_final = model
+            selected_transformer_source = source
+            break
+
     shortlist = []
-    for model in [hy_final_key, best_textual_name, "TF-IDF", "BETO"]:
+    for model in [hy_final_key, "TF-IDF", selected_transformer_final, best_textual_name]:
+        if not model:
+            continue
         if model not in shortlist and (rank_df["modelo_variante"] == model).any():
             shortlist.append(model)
     shortlist = shortlist[:4]
@@ -482,6 +697,19 @@ def main() -> int:
         print("[dry-run] Directorio barrido:", barrido_dir)
         print("[dry-run] Freeze:", freeze_dir)
         print("[dry-run] Híbrido final:", hy_final_key)
+        print(
+            "[dry-run] Transformer seleccionado:",
+            selected_transformer_final,
+            "| fuente:",
+            selected_transformer_source,
+        )
+        if backbone_cmp.get("valido"):
+            print(
+                "[dry-run] Comparación backbone válida:",
+                backbone_cmp.get("run_dir"),
+                "| best:",
+                backbone_cmp.get("best_backbone"),
+            )
         print("[dry-run] Lista corta:", ", ".join(shortlist))
         return 0
 
@@ -495,6 +723,8 @@ def main() -> int:
         "split",
         "perfil",
         "modelo",
+        "text_backbone",
+        "context_prefixes",
         "macro_f1_mean",
         "balanced_accuracy_mean",
         "f1_ansiedad_mean",
@@ -585,7 +815,7 @@ def main() -> int:
                 "componente": "Penalización",
                 "criterio": "riesgos metodológicos",
                 "peso": 1.00,
-                "regla": "template +0.08; medicación +0.06; LLM +0.04; casi solo BETO +0.05",
+                "regla": "template +0.08; medicación +0.06; LLM +0.04; casi solo contexto +0.05",
             },
         ]
     )
@@ -595,6 +825,11 @@ def main() -> int:
         "posicion_final"
     )
     hy_row = rank_export[rank_export["modelo_variante"] == hy_final_key].iloc[0]
+    hy_final_backbone = (
+        str(hy_row.get("text_backbone"))
+        if pd.notna(hy_row.get("text_backbone"))
+        else "no_reportado"
+    )
 
     modelos_test = []
     for _, model_row in shortlist_rows.iterrows():
@@ -604,8 +839,11 @@ def main() -> int:
             just = "Mejor baseline textual por macro_f1 en dev"
         elif model_row["modelo_variante"] == "TF-IDF":
             just = "Baseline léxico-estadístico fuerte y parsimonioso"
-        elif model_row["modelo_variante"] == "BETO":
-            just = "Baseline contextual de referencia"
+        elif model_row["modelo_variante"] == selected_transformer_final:
+            just = (
+                "Transformer baseline seleccionado para shortlist "
+                f"(fuente: {selected_transformer_source})"
+            )
         else:
             just = "Modelo incluido por criterio metodológico de control"
 
@@ -662,7 +900,7 @@ def main() -> int:
                 "template",
                 "medicación como proxy diagnóstica",
                 "LLM sin evidencia robusta",
-                "configuraciones casi solo BETO",
+                "configuraciones casi solo contexto",
             ],
         },
         "modelo_hibrido_final": {
@@ -699,6 +937,42 @@ def main() -> int:
                 hy_row["macro_f1_mean"] - best_textual_macro
             ),
         },
+        "mejor_transformer_baseline_dev": (
+            {
+                "modelo_variante": best_transformer_name,
+                "macro_f1_dev": float(
+                    rank_export[rank_export["modelo_variante"] == best_transformer_name][
+                        "macro_f1_mean"
+                    ].iloc[0]
+                )
+                if best_transformer_name
+                else None,
+            }
+            if best_transformer_name
+            else None
+        ),
+        "seleccion_transformer_04c": {
+            "path": str(selection_04c_path) if selection_04c_path else None,
+            "fuente": selection_04c.get("fuente"),
+            "modelo_seleccionado_04c": selected_transformer_04c,
+            "valido": bool(selection_04c.get("valido")),
+            "error": selection_04c.get("error"),
+        },
+        "comparacion_controlada_backbones_hibrido": {
+            "valido": bool(backbone_cmp.get("valido")),
+            "fuente": backbone_cmp.get("fuente"),
+            "run_dir": backbone_cmp.get("run_dir"),
+            "csv_path": backbone_cmp.get("csv_path"),
+            "json_path": backbone_cmp.get("json_path"),
+            "backbone_ganador": backbone_cmp.get("best_backbone"),
+            "modelo_transformer_ganador": backbone_cmp.get("best_backbone_modelo"),
+            "macro_f1_ganador": backbone_cmp.get("best_macro_f1"),
+            "delta_vs_beto": backbone_cmp.get("delta_vs_beto"),
+        },
+        "criterio_transformer_para_shortlist": {
+            "modelo_transformer_usado_en_shortlist": selected_transformer_final,
+            "fuente": selected_transformer_source,
+        },
         "modelos_que_pasan_a_test": modelos_test,
         "nota_freeze": "A partir de esta decisión no se deben cambiar reglas, features ni configuración en función de resultados de test.",
     }
@@ -732,11 +1006,12 @@ def main() -> int:
         "- Criterios metodológicos: parsimonia, auditabilidad clínica y trazabilidad de señales."
     )
     md.append(
-        "- Penalizaciones explícitas: dependencia de template, medicación como proxy diagnóstica, LLM sin evidencia robusta y configuraciones casi solo BETO."
+        "- Penalizaciones explícitas: dependencia de template, medicación como proxy diagnóstica, LLM sin evidencia robusta y configuraciones casi solo contexto."
     )
     md.append("")
     md.append("## Modelo híbrido final congelado")
     md.append(f"- Variante: `{hy_final_key}`")
+    md.append(f"- Backbone contextual reportado en la variante: `{hy_final_backbone}`")
     md.append(
         f"- Desempeño en dev: macro_f1={hy_row['macro_f1_mean']:.6f}, balanced_accuracy={hy_row['balanced_accuracy_mean']:.6f}"
     )
@@ -761,12 +1036,37 @@ def main() -> int:
         "- Interpretación: el híbrido final no se presenta como ganador absoluto en métrica pura; se selecciona por equilibrio entre desempeño, trazabilidad clínica y control de riesgos metodológicos."
     )
     md.append("")
+    md.append("## Evidencia de selección de backbone contextual")
+    if selection_04c.get("valido"):
+        md.append(
+            f"- Selección 04c válida: `{selected_transformer_04c}` (fuente: `{selection_04c.get('fuente')}`; path: `{selection_04c.get('path')}`)."
+        )
+    else:
+        md.append("- No se detectó artefacto válido de selección 04c; se aplicó fallback por tabla consolidada.")
+
+    if backbone_cmp.get("valido"):
+        md.append(
+            f"- Comparación controlada de backbones válida: `{backbone_cmp.get('best_backbone')}` "
+            f"(modelo: `{backbone_cmp.get('best_backbone_modelo')}`, delta vs BETO: `{backbone_cmp.get('delta_vs_beto')}`)."
+        )
+    else:
+        md.append("- No se detectó comparación controlada de backbones válida para consumo automático.")
+
+    md.append(
+        f"- Transformer usado en shortlist: `{selected_transformer_final}` (criterio: `{selected_transformer_source}`)."
+    )
+    md.append("")
     md.append("## Modelos que pasan a test (lista corta)")
     for model in modelos_test:
         md.append(f"- `{model['modelo_variante']}`: {model['justificacion_corta']}.")
     md.append("")
     md.append("## Riesgos metodológicos remanentes")
-    md.append("- Persiste dependencia relevante de BETO en variantes híbridas competitivas.")
+    if backbone_cmp.get("valido") and backbone_cmp.get("best_backbone") != "beto":
+        md.append(
+            "- Existe evidencia en comparación controlada de que un backbone distinto de BETO puede ser competitivo; verificar consistencia en rerun final de dev antes de congelar test."
+        )
+    else:
+        md.append("- Persiste dependencia relevante del backbone contextual en variantes híbridas competitivas.")
     md.append(
         "- El aporte de LLM no muestra mejora robusta y estable en esta fase de desarrollo."
     )
@@ -793,6 +1093,14 @@ def main() -> int:
     risk_md.append(
         "- Las variantes con LLM activo no muestran ventaja consistente frente a alternativas equivalentes sin LLM."
     )
+    if backbone_cmp.get("valido"):
+        risk_md.append(
+            f"- La comparación controlada de backbones sugiere `{backbone_cmp.get('best_backbone')}` como mejor opción local; este hallazgo debe mantenerse trazable en la decisión final."
+        )
+    else:
+        risk_md.append(
+            "- No hubo comparación controlada de backbones válida; la decisión de backbone queda condicionada a la evidencia de 04c y barrido."
+        )
     risk_md.append("")
     risk_md.append("## Implicación para test")
     risk_md.append(
