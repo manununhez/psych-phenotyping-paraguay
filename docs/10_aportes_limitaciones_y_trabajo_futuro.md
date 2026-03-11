@@ -6,7 +6,7 @@
 3. Delimitación explícita del rol del LLM para evitar dependencia diagnóstica opaca.
 4. Tratamiento diferenciado de negación clínica: preservación de negación del paciente y filtrado de negación de plantilla/médico.
 5. Conservación de medicación como evidencia terapéutica separada (`rule_medication_*`), evitando fusión diagnóstica incontrolada.
-6. Flujo reproducible con artefactos exportables para tesis y auditoría.
+6. Flujo reproducible con artefactos exportables para reporte metodológico y auditoría.
 
 ## Limitaciones
 1. Dependencia de cobertura lexical y calidad de redacción clínica local.

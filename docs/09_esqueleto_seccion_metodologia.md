@@ -1,9 +1,10 @@
-# Esqueleto de la Sección de Metodología (Tesis)
+# Esqueleto de la Sección de Metodología
 
 ## 1. Contexto del problema y objetivo operacional
 Qué explicar:
 - tarea de fenotipado psiquiátrico en EHR paraguayo;
-- clases objetivo (`ansiedad`, `depresión`, `comorbilidad`);
+- clases objetivo (`ansiedad`, `depresion`);
+- carácter probabilístico de la salida y manejo de casos ambiguos en zona de solapamiento clínico;
 - criterio de diseño explicable y reproducible.
 
 ## 2. Datos y preparación inicial

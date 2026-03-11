@@ -6,7 +6,7 @@ Las reglas siguen siendo útiles por dos razones concretas:
 - permiten trazabilidad clínica de la extracción;
 - ofrecen un punto de control estable cuando el resto de componentes es más flexible.
 
-En una tesis con foco aplicado, esa trazabilidad pesa tanto como la métrica final.
+En un estudio con foco aplicado, esa trazabilidad pesa tanto como la métrica final.
 
 ## Negación del paciente como señal
 Frases de negación del paciente no se interpretan automáticamente como “ausencia clínica”. En psiquiatría, pueden codificar falta de insight, minimización o conflicto entre relato y observación. Por eso se preservan como features (`feat_niega_*`) y se modelan como información, no como descarte.

@@ -20,7 +20,7 @@ Esa independencia es importante porque permite separar dos discusiones:
 - qué capta un modelo de texto convencional;
 - qué fenómenos quedan fuera cuando hay variación regional, abreviaturas locales y cambios semánticos de uso clínico.
 
-El aporte de TF-IDF en esta tesis es justamente marcar ese límite: puede capturar señal útil, pero no resuelve de manera confiable la brecha dialectal por sí solo.
+El aporte de TF-IDF en este estudio es justamente marcar ese límite: puede capturar señal útil, pero no resuelve de manera confiable la brecha dialectal por sí solo.
 
 ## Baselines Transformer
 Los baselines Transformer se incluyeron para evaluar si el contexto subléxico y semántico mejora respecto a enfoques puramente lexicales. No se asumió superioridad automática; se evaluó su comportamiento en el mismo marco de split por paciente y denoising previo.

@@ -1,4 +1,4 @@
-# Preguntas Clave de la Tesis
+# Preguntas Clave del Estudio
 
 ## Pregunta 1
 ¿La brecha léxica entre español clínico colombiano y paraguayo afecta de forma sustantiva la detección de fenotipos psiquiátricos?
@@ -48,4 +48,4 @@ Por qué importa: delimita riesgo metodológico y protege reproducibilidad en un
 ## Pregunta 10
 ¿La combinación final (reglas + late fusion + embeddings BETO + sentimiento + RandomForest/XGBoost) es defendible como arquitectura híbrida explicable?
 
-Por qué importa: esta es la pregunta de cierre. Si no se responde con claridad, la tesis queda como una suma de piezas en lugar de un diseño metodológico coherente.
+Por qué importa: esta es la pregunta de cierre. Si no se responde con claridad, el trabajo queda como una suma de piezas en lugar de un diseño metodológico coherente.

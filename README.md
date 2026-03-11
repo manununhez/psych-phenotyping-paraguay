@@ -1,38 +1,30 @@
 # Fenotipado Psiquiátrico Paraguay
 
-Repositorio de tesis para fenotipado psiquiátrico en notas clínicas IPS (Paraguay).
+Repositorio de investigación para clasificación probabilística de notas clínicas psiquiátricas del IPS (Paraguay).
 
-## Alcance científico congelado
-- Sistema de reglas y lexicones congelados: `Concept_CO`, `Concept_PY`, `Concept_PY_Lexicon`.
-- Arquitectura híbrida congelada: reglas + LLM semántico + `embeddings` BETO + sentimiento + `RandomForest` / `XGBoost`.
-- Clases objetivo congeladas: `ansiedad`, `depresión`, `comorbilidad`.
+## Objetivo actual
+- Tarea supervisada binaria: `ansiedad` vs `depresion`.
+- En esta fase no existe clase explícita de `comorbilidad`.
+- Arquitectura híbrida congelada: reglas clínicas + normalización semántica acotada con LLM + `embeddings` BETO + sentimiento + `RandomForest`/`XGBoost`.
+
+## Estado metodológico actual
+- Selección y ablación cerradas en `dev`.
+- `test` reservado para evaluación final (no ejecutado en esta fase).
+- Freeze léxico preliminar generado.
+- Cierre formal de selección de modelo en `dev` generado.
+- Pendientes de fase final (manual):
+  - notebook final de evaluación en `test`;
+  - notebook final de xAI/explicabilidad.
+
+## Reglas de control experimental
 - Split obligatorio: `patient-level split`.
-- `late fusion` congelada: `feat_X = max(rule_X, llm_X)`.
+- Regla de `late fusion` congelada: `feat_X = max(rule_X, llm_X)`.
+- Recursos léxicos congelados para trazabilidad:
+  - `Concept_CO` (baseline histórico),
+  - `Concept_PY` (Core),
+  - `Concept_PY_Lexicon` (adaptación regional).
 
-## Estructura activa mínima
-```text
-.
-├── notebooks/
-│   ├── pipeline/
-│   ├── analysis/
-│   ├── appendix/
-│   ├── README.md
-│   └── utils_shared.py
-├── scripts/
-│   └── README.md
-├── docs/
-│   ├── GUIA_EJECUCION.md
-│   ├── METODOLOGIA.md
-│   ├── ESTRATEGIA_VALIDACION.md
-│   └── LIMITACIONES.md
-└── archivo/
-    ├── documentacion_historica/
-    ├── notebooks_legado/
-    ├── notebooks_apendice/
-    └── interno/
-```
-
-## Flujo operativo de notebooks
+## Flujo activo del pipeline de desarrollo
 1. `notebooks/pipeline/01_datos_eda_limpieza.ipynb`
 2. `notebooks/pipeline/02_patient_level_split.ipynb`
 3. `notebooks/pipeline/03_denoising_reglas_core.ipynb`
@@ -43,16 +35,34 @@ Repositorio de tesis para fenotipado psiquiátrico en notas clínicas IPS (Parag
 8. `notebooks/pipeline/06_ingenieria_features_hibridas.ipynb`
 9. `notebooks/pipeline/07_entrenamiento_modelos_hibridos.ipynb`
 10. `notebooks/pipeline/08_resultados_hibrido_vs_lineas_base.ipynb`
-11. `notebooks/analysis/09_analisis_errores_hibrido.ipynb`
+11. `notebooks/pipeline/09b_cierre_modelos_dev.ipynb`
+12. `notebooks/analysis/09_analisis_errores_hibrido.ipynb`
 
-## Artefactos exportados clave
-- Características híbridas: `data/processed/fe_<run_id>_{core,py}/features_{core,py}.parquet`.
-- Entrenamiento: `data/outputs/train_<run_id>/comparacion_modelos_<split>.csv`, predicciones, figuras y modelos.
-- Resultados consolidados: `data/outputs/results_<run_id>/tabla_comparativa_modelos.csv` y figuras.
-- Análisis de errores: `data/outputs/error_analysis_<run_id>/`.
+## Diferencia entre `dev` y `test`
+- `dev`: comparación de líneas base, barridos, ablaciones y selección del modelo final.
+- `test`: evaluación final única de la lista corta congelada.
+- En el estado actual del repositorio, la fase `test` y la fase final de xAI todavía no están integradas al flujo automático.
 
-## Documentación activa
-- Guía de ejecución: `docs/GUIA_EJECUCION.md`.
-- Metodología: `docs/METODOLOGIA.md`.
-- Validación clínica: `docs/ESTRATEGIA_VALIDACION.md`.
-- Limitaciones: `docs/LIMITACIONES.md`.
+## Reproducción limpia del desarrollo (hasta estado actual)
+Script principal:
+- `python scripts/regenerar_pipeline_desarrollo.py --dry-run`
+- `python scripts/regenerar_pipeline_desarrollo.py`
+
+Con esto se reproduce el flujo de desarrollo y los artefactos de cierre en `dev`, sin ejecutar `test`.
+La decisión formal del modelo final queda en `notebooks/pipeline/09b_cierre_modelos_dev.ipynb` y también es invocable por `scripts/cerrar_modelos_dev.py`.
+
+## Salidas clave
+- Features híbridas: `data/processed/fe_<run_id>_{core,py}/`.
+- Entrenamiento: `data/outputs/train_<run_id>/`.
+- Resultados comparativos: `data/outputs/results_<run_id>/`.
+- Error analysis: `data/outputs/error_analysis_<run_id>/`.
+- Freeze léxico: `data/outputs/freeze_lexico_<timestamp>/`.
+- Cierre de modelos en `dev`: `data/outputs/cierre_modelos_dev_<timestamp>/`.
+- Regeneración: `data/outputs/regeneracion_desarrollo_<timestamp>/`.
+
+## Documentación recomendada
+- `docs/pipeline_desarrollo.md`
+- `docs/metodologia_experimental.md`
+- `docs/estado_actual_proyecto.md`
+- `docs/GUIA_EJECUCION.md`
+- `scripts/README.md`
