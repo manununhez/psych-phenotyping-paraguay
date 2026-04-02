@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Consolida insumos metodológicos y de resultados para tesis.
+Genera un reporte consolidado del estado actual del experimento.
 
 Objetivo:
-- detectar artefactos vigentes (priorizando punteros latest/manifiestos);
+- detectar artefactos vigentes (priorizando punteros latest y manifiestos);
 - validar consistencia entre artefactos clave;
-- exportar un paquete consolidado y trazable para redacción.
+- exportar un paquete legible y trazable con el estado metodológico actual.
 """
 
 from __future__ import annotations
@@ -62,6 +62,11 @@ def _latest_files(base: Path, pattern: str) -> list[Path]:
     return sorted([p for p in base.glob(pattern) if p.is_file()], key=lambda p: p.stat().st_mtime, reverse=True)
 
 
+def _is_ignored_output(path: Path) -> bool:
+    low = str(path).lower()
+    return any(token in low for token in ["smoke", "demo", "prueba", "tmp"])
+
+
 def _to_upper_model(value: str | None) -> str | None:
     if value is None:
         return None
@@ -76,7 +81,7 @@ def _to_upper_model(value: str | None) -> str | None:
 
 
 def _git_info(repo: Path) -> dict[str, Any]:
-    out = {"commit": None, "commit_short": None, "branch": None, "dirty": None}
+    out = {"commit": None, "commit_short": None, "branch": None, "dirty": None, "error": None}
     try:
         out["commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
         out["commit_short"] = subprocess.check_output(
@@ -88,8 +93,8 @@ def _git_info(repo: Path) -> dict[str, Any]:
         out["dirty"] = bool(
             subprocess.check_output(["git", "status", "--porcelain"], cwd=repo, text=True).strip()
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        out["error"] = str(exc)
     return out
 
 
@@ -473,21 +478,41 @@ def _detect_test_outputs(repo: Path) -> dict[str, Any]:
         "**/matriz_confusion_*_test.csv",
         "**/tabla_comparativa_modelos_test.csv",
     ]
-    hits = []
+    hits: list[str] = []
     for pat in patterns:
-        hits.extend(str(p) for p in outputs_dir.glob(pat))
+        hits.extend(str(p) for p in outputs_dir.glob(pat) if not _is_ignored_output(p))
     hits = sorted(set(hits))
     return {"n_hits": len(hits), "paths_muestra": hits[:20]}
 
 
-def _detect_xai_outputs(repo: Path) -> dict[str, Any]:
+def _detect_xai_state(repo: Path) -> dict[str, Any]:
     outputs_dir = repo / "data" / "outputs"
-    patterns = ["**/*xai*", "**/*explicab*", "**/*shap*", "**/*lime*"]
-    hits = []
-    for pat in patterns:
-        hits.extend(str(p) for p in outputs_dir.glob(pat))
-    hits = sorted(set(hits))
-    return {"n_hits": len(hits), "paths_muestra": hits[:20]}
+    patterns_outputs = [
+        "**/xai_*",
+        "**/*explicab*",
+        "**/*shap*",
+        "**/*lime*",
+    ]
+    patterns_insumos = [
+        "**/casos_clinicos_reutilizables_xai.csv",
+    ]
+
+    outputs: list[str] = []
+    insumos: list[str] = []
+    for pat in patterns_outputs:
+        outputs.extend(str(p) for p in outputs_dir.glob(pat) if not _is_ignored_output(p))
+    for pat in patterns_insumos:
+        insumos.extend(str(p) for p in outputs_dir.glob(pat) if not _is_ignored_output(p))
+
+    outputs = sorted(set(outputs))
+    insumos = sorted(set(insumos))
+    return {
+        "n_outputs": len(outputs),
+        "outputs_muestra": outputs[:20],
+        "n_insumos_preparatorios": len(insumos),
+        "insumos_muestra": insumos[:20],
+        "estado": "DISPONIBLE" if outputs else ("PREPARADO_PARA_XAI" if insumos else "PENDIENTE"),
+    }
 
 
 def _pick_col(df: pd.DataFrame, candidates: list[str]) -> str | None:
@@ -754,8 +779,8 @@ def _arquitectura_lexica_df(
     )
     layer_map = {
         "CO": snapshot_patterns / "Concept_CO",
-        "Core": snapshot_patterns / "Concept_PY",
-        "PY": snapshot_patterns / "Concept_PY_Lexicon",
+        "Core": snapshot_patterns / "Concept_Core",
+        "PY": snapshot_patterns / "Concept_PY",
     }
 
     layer_terms: dict[str, set[str]] = {}
@@ -1167,7 +1192,7 @@ def _decision_table(
     transformer_best: str | None,
     backbone_best_model: str | None,
     audit_veredicto: str | None,
-    xai_pendiente: bool,
+    estado_xai: str,
 ) -> pd.DataFrame:
     rows = []
     rows.append(
@@ -1213,8 +1238,8 @@ def _decision_table(
     rows.append(
         {
             "decision": "estado_xai",
-            "valor": "PENDIENTE" if xai_pendiente else "DISPONIBLE",
-            "fuente": "deteccion_outputs_xai",
+            "valor": estado_xai,
+            "fuente": "deteccion_estado_xai",
             "estado": "confirmado",
         }
     )
@@ -1266,7 +1291,7 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Consolida insumos vigentes de metodología y resultados para tesis.")
+    parser = argparse.ArgumentParser(description="Genera un reporte consolidado del estado actual del experimento.")
     parser.add_argument("--dry-run", action="store_true", help="No escribe archivos; solo valida y reporta.")
     parser.add_argument("--verbose", action="store_true", help="Imprime detalle de resolución de artefactos.")
     parser.add_argument(
@@ -1277,7 +1302,7 @@ def main() -> int:
     parser.add_argument("--out-root", default="data/outputs", help="Directorio base de outputs.")
     args = parser.parse_args()
 
-    repo = Path(__file__).resolve().parents[1]
+    repo = Path(__file__).resolve().parents[2]
     outputs_dir = (repo / args.out_root).resolve()
     data_dir = repo / "data"
     splits_dir = data_dir / "splits"
@@ -1397,11 +1422,14 @@ def main() -> int:
     consistency["checks"].append({"check": "error_analysis_alineado_modelo_final", "ok": err_aligned})
 
     test_outputs = _detect_test_outputs(repo)
-    xai_outputs = _detect_xai_outputs(repo)
+    xai_state = _detect_xai_state(repo)
+    audit_veredicto = (audit_test_res.detalle.get("veredicto") if audit_test_res.detalle else None)
+    estado_test = audit_veredicto or ("PENDIENTE" if test_outputs.get("n_hits", 0) == 0 else "NO_AUDITADO_CON_OUTPUTS")
+    test_pendiente = estado_test in {"PENDIENTE", "TEST_VIRGEN", "NO_ENCONTRADO"}
 
     # Salida
     tag = re.sub(r"[^a-zA-Z0-9_\-]+", "_", args.output_tag).strip("_") if args.output_tag else _now_ts()
-    run_id = f"insumos_tesis_metodologia_resultados_{tag}"
+    run_id = f"reporte_estado_actual_{tag}"
     out_dir = outputs_dir / run_id
 
     reporte_json = {
@@ -1430,9 +1458,10 @@ def main() -> int:
         },
         "estado_fase_final": {
             "test_outputs_detectados": test_outputs,
-            "xai_outputs_detectados": xai_outputs,
-            "test_pendiente": (audit_test_res.detalle.get("veredicto") == "TEST_VIRGEN") if audit_test_res.detalle else None,
-            "xai_pendiente": xai_outputs.get("n_hits", 0) == 0,
+            "xai_estado_detectado": xai_state,
+            "estado_test": estado_test,
+            "test_pendiente": test_pendiente,
+            "xai_pendiente": xai_state.get("estado") == "PENDIENTE",
         },
         "fuentes_de_verdad": {
             "cierre_formal_dev": cierre_res.path,
@@ -1530,21 +1559,21 @@ def main() -> int:
     error_analysis_df.to_csv(out_dir / "error_analysis_modelo_final_resumen.csv", index=False)
     (out_dir / "error_analysis_modelo_final_resumen.md").write_text(error_analysis_md, encoding="utf-8")
 
-    # Tabla maestra insumos tesis: usar tabla de barrido/referencia del cierre y enriquecer con flags de selección
+    # Tabla maestra de resultados: usar la tabla de barrido/referencia del cierre y enriquecer con flags de selección
     if not tabla_maestra_df.empty:
         tdf = tabla_maestra_df.copy()
         final_variant = (((cierre_decision.get("modelo_hibrido_final") or {}).get("modelo_variante")) or "").strip()
         tdf["es_modelo_hibrido_final"] = (tdf["nombre_variante"].astype(str) == final_variant).astype(int)
-        tdf.to_csv(out_dir / "tabla_maestra_insumos_tesis.csv", index=False)
+        tdf.to_csv(out_dir / "tabla_maestra_resultados.csv", index=False)
     else:
-        pd.DataFrame().to_csv(out_dir / "tabla_maestra_insumos_tesis.csv", index=False)
+        pd.DataFrame().to_csv(out_dir / "tabla_maestra_resultados.csv", index=False)
 
     decisiones_df = _decision_table(
         cierre_decision=cierre_decision,
         transformer_best=transformer_best,
         backbone_best_model=backbone_best_model,
-        audit_veredicto=(audit_test_res.detalle.get("veredicto") if audit_test_res.detalle else None),
-        xai_pendiente=(xai_outputs.get("n_hits", 0) == 0),
+        audit_veredicto=estado_test,
+        estado_xai=xai_state.get("estado", "PENDIENTE"),
     )
     decisiones_df.to_csv(out_dir / "tabla_decisiones_metodologicas_clave.csv", index=False)
     decisiones_md_lines = ["# Decisiones metodológicas clave", ""]
@@ -1559,10 +1588,37 @@ def main() -> int:
     (out_dir / "dataset_resumen.md").write_text(dataset_md, encoding="utf-8")
     (out_dir / "arquitectura_lexica_resumen.md").write_text(arq_lex_md, encoding="utf-8")
 
-    _write_json(out_dir / "reporte_consolidacion_insumos.json", reporte_json)
+    artefactos_df = pd.DataFrame(
+        [
+            {
+                "componente": r.componente,
+                "path": r.path,
+                "estado": r.estado,
+                "fuente": r.fuente,
+            }
+            for r in selected_components
+        ]
+    )
+    artefactos_df.to_csv(out_dir / "artefactos_seleccionados.csv", index=False)
+
+    estado_componentes_df = pd.DataFrame(
+        [{"componente": k, "estado": v} for k, v in reporte_json["estado_componentes"].items()]
+    )
+    estado_componentes_df.to_csv(out_dir / "estado_componentes.csv", index=False)
+
+    _write_json(out_dir / "reporte_estado_actual.json", reporte_json)
+    _write_json(
+        outputs_dir / "reporte_estado_actual_latest.json",
+        {
+            "run_id": run_id,
+            "output_dir": str(out_dir),
+            "fecha": reporte_json["fecha"],
+            "consistencia_ok": bool(reporte_json["consistencia"]["ok"]),
+        },
+    )
 
     md = []
-    md.append("# Reporte de consolidación de insumos de tesis")
+    md.append("# Reporte de estado actual del experimento")
     md.append("")
     md.append(f"- Run ID: `{run_id}`")
     md.append(f"- Fecha: {reporte_json['fecha']}")
@@ -1591,9 +1647,20 @@ def main() -> int:
         f"- Coinciden: `{reporte_json['resumen_decision_transformer_vs_backbone']['coinciden']}`"
     )
     md.append("")
+    md.append("## Estado del repositorio")
+    git_info = reporte_json["git"]
+    md.append(f"- Commit: `{git_info.get('commit_short')}`")
+    md.append(f"- Branch: `{git_info.get('branch')}`")
+    md.append(f"- Dirty: `{git_info.get('dirty')}`")
+    if git_info.get("error"):
+        md.append(f"- Nota: no se pudo resolver el estado Git completo (`{git_info['error']}`).")
+    md.append("")
     md.append("## Estado de fases pendientes")
     md.append(
         f"- Auditoría de test: `{auditoria_test_resumen.get('veredicto')}`"
+    )
+    md.append(
+        f"- Estado test: `{reporte_json['estado_fase_final']['estado_test']}`"
     )
     md.append(
         f"- Test pendiente: `{reporte_json['estado_fase_final']['test_pendiente']}`"
@@ -1601,6 +1668,29 @@ def main() -> int:
     md.append(
         f"- xAI pendiente: `{reporte_json['estado_fase_final']['xai_pendiente']}`"
     )
+    md.append(
+        f"- Estado xAI: `{xai_state.get('estado')}`"
+    )
+    md.append("")
+    md.append("## Modelo final vigente en `dev`")
+    modelo_final = (cierre_decision.get("modelo_hibrido_final") or {})
+    md.append(f"- Variante: `{modelo_final.get('modelo_variante')}`")
+    md.append(f"- Perfil/modelo: `{modelo_final.get('perfil')}` / `{modelo_final.get('modelo')}`")
+    md.append(f"- macro_f1_dev: `{modelo_final.get('macro_f1_dev')}`")
+    md.append(f"- balanced_accuracy_dev: `{modelo_final.get('balanced_accuracy_dev')}`")
+    md.append(f"- f1_ansiedad_dev: `{modelo_final.get('f1_ansiedad_dev')}`")
+    md.append(f"- f1_depresion_dev: `{modelo_final.get('f1_depresion_dev')}`")
+    md.append("")
+    md.append("## Modelos que pasan a `test`")
+    modelos_test = cierre_decision.get("modelos_que_pasan_a_test") or []
+    if modelos_test:
+        for item in modelos_test:
+            md.append(
+                f"- `{item.get('modelo_variante')}` | source=`{item.get('source')}` | "
+                f"macro_f1_dev=`{item.get('macro_f1_dev')}` | balanced_accuracy_dev=`{item.get('balanced_accuracy_dev')}`"
+            )
+    else:
+        md.append("- No hay lista de modelos para `test` en el cierre vigente.")
     md.append("")
     md.append("## Advertencias")
     if warnings:
@@ -1624,13 +1714,15 @@ def main() -> int:
         "auditoria_test_resumen.json",
         "error_analysis_modelo_final_resumen.csv",
         "error_analysis_modelo_final_resumen.md",
-        "tabla_maestra_insumos_tesis.csv",
+        "tabla_maestra_resultados.csv",
         "tabla_decisiones_metodologicas_clave.csv",
         "tabla_decisiones_metodologicas_clave.md",
-        "reporte_consolidacion_insumos.json",
+        "artefactos_seleccionados.csv",
+        "estado_componentes.csv",
+        "reporte_estado_actual.json",
     ]:
         md.append(f"- `{out_dir / name}`")
-    (out_dir / "reporte_consolidacion_insumos.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+    (out_dir / "reporte_estado_actual.md").write_text("\n".join(md) + "\n", encoding="utf-8")
 
     print(out_dir)
     return 0

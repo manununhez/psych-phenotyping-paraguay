@@ -95,6 +95,13 @@ Script principal:
 Con esto se reproduce el flujo de desarrollo y los artefactos de cierre en `dev`, sin ejecutar `test`.
 La decisión formal del modelo final queda en `notebooks/pipeline/09b_cierre_modelos_dev.ipynb` y también es invocable por `scripts/cerrar_modelos_dev.py`.
 
+## Reporte general del estado actual
+- Script: `python scripts/reportes/generar_reporte_estado_actual.py --verbose`
+- Objetivo: consolidar el estado vigente del experimento a partir de los artefactos más recientes y consistentes.
+- Salidas:
+  - `data/outputs/reporte_estado_actual_<timestamp>/`
+  - `data/outputs/reporte_estado_actual_latest.json`
+
 ## Salidas clave
 - Features híbridas: `data/processed/fe_<run_id>_{core,py}/`.
 - Entrenamiento: `data/outputs/train_<run_id>/`.

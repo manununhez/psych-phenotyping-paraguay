@@ -34,6 +34,8 @@ scripts/
     generar_material_validacion_ips.py
     curar_dossier_ips.py
     cerrar_fase_ips.py
+  reportes/
+    generar_reporte_estado_actual.py
   devtools/
     split_batches.py
 ```
@@ -58,6 +60,7 @@ python scripts/comparar_backbones_hibrido.py --backbones beto,roberta_clinical -
 python scripts/ejecutar_barrido_ablacion_hibrido.py --eval-split dev --ref-train-run train_YYYYMMDD_HHMMSS --fases A,B,C --top-c 3
 python scripts/audit/generar_freeze_lexico.py
 python scripts/cerrar_modelos_dev.py
+python scripts/reportes/generar_reporte_estado_actual.py --verbose
 ```
 
 ## Regeneración del pipeline de desarrollo
@@ -144,6 +147,16 @@ Salidas del cierre:
   - consume artefactos ya cerrados en `dev`;
   - no reabre entrenamiento ni redefine la shortlist;
   - prepara material para revisión clínica externa y casos reutilizables para futura xAI.
+
+## Reporte de estado actual
+- Script: `scripts/reportes/generar_reporte_estado_actual.py`.
+- Rol:
+  - detectar artefactos vigentes y consistentes;
+  - resumir dataset, baselines, backbone, freeze, cierre y error analysis;
+  - producir un snapshot legible del estado metodológico actual.
+- Salidas:
+  - `data/outputs/reporte_estado_actual_<timestamp>/`
+  - `data/outputs/reporte_estado_actual_latest.json`
 
 ## Manifiesto de artefactos de backbone
 - Script: `scripts/audit/registrar_artefactos_backbone.py`.
