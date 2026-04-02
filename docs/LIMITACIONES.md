@@ -6,7 +6,7 @@ Primero, el corpus proviene de un entorno institucional específico. Esto puede 
 
 Segundo, el etiquetado clínico en EHR no siempre separa con nitidez diagnóstico longitudinal y contenido puntual de una nota. En casos frontera, parte del error puede venir de ambigüedad o solapamiento clínico y no solo del modelo. La comorbilidad explícita queda fuera del objetivo actual y se considera línea de trabajo futuro.
 
-Tercero, la cobertura léxica regional es dinámica. Aunque la adaptación `Concept_PY` y `Concept_PY_Lexicon` mejora robustez, siempre existe riesgo de variantes nuevas fuera de diccionario.
+Tercero, la cobertura léxica regional es dinámica. Aunque la adaptación `Concept_Core` + `Concept_PY` mejora robustez, siempre existe riesgo de variantes nuevas fuera de diccionario.
 
 Cuarto, la reproducibilidad computacional depende del entorno disponible (por ejemplo, disponibilidad de `XGBoost` y recursos para baselines Transformer). Por eso los artefactos versionados por corrida son parte del diseño metodológico y no un detalle operativo.
 

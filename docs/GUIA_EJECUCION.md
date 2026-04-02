@@ -63,11 +63,21 @@ Cada corrida deja:
 
 ## Nota específica sobre backbone
 - `04c` define y exporta la selección del baseline Transformer.
-- `06+` consume esa selección por defecto y permite override explícito por entorno.
+- `06` usa BETO por defecto para el híbrido, de acuerdo con la comparación controlada de backbone.
+- Si se quiere probar una herencia explícita desde `04c`, debe indicarse `FE_TEXT_BACKBONE=auto`.
 - `09b` utiliza la selección de `04c` y la comparación controlada de backbones (si existe artefacto válido) para fundamentar la decisión final en `dev`.
 
 Cadena operativa recomendada:
 `04c` -> `06` -> `07` -> `scripts/comparar_backbones_hibrido.py` -> `scripts/audit/registrar_artefactos_backbone.py` -> `09b`.
+
+## Resolución automática en notebooks
+- `07` resuelve por defecto la última corrida completa de features (`fe_*`) por mtime real y no por orden alfabético.
+- `08` resuelve por defecto la última corrida base canónica `train_YYYYMMDD_HHMMSS`.
+- `09b` busca un barrido compatible con la corrida base actual y, si no existe, puede preparar automáticamente:
+  - `scripts/ejecutar_barrido_ablacion_hibrido.py`
+  - `scripts/audit/generar_freeze_lexico.py`
+
+Esto deja el flujo notebook-only alineado con la regeneración reproducible del proyecto.
 
 ## Nota metodológica
 La regeneración está diseñada para reproducir el estado de desarrollo y su documentación de cierre en `dev`, sin mezclar decisiones de la fase final.

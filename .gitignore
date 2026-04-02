@@ -60,6 +60,7 @@ notebooks/outputs/
 notebooks/runs/
 outputs/
 runs/
+docs/legacy/
 
 # ============================================================
 # MODELOS Y BINARIOS
