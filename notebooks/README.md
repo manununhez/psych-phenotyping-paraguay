@@ -51,7 +51,7 @@ Cada notebook operativo declara al inicio:
 - 08: `data/outputs/results_<run_id>/` con tablas y figuras de comparación.
 - 09b: `data/outputs/cierre_modelos_dev_<timestamp>/` con ranking, decisión y lista corta para `test`. Si no existe un barrido compatible con la corrida base actual, `09b` puede preparar automáticamente el barrido y regenerar el freeze léxico antes del cierre.
 - 09 análisis: `data/outputs/error_analysis_<run_id>/` con resumen de errores y casos.
-- 10 validación IPS: `data/outputs/material_validacion_ips_<timestamp>/` con preprocesamiento, balance, patrones por clase, comparación entre modelos, errores curados y preguntas para psiquiatras.
+- 10 validación IPS: `data/outputs/material_validacion_ips_<timestamp>/` con preprocesamiento, balance, patrones por clase, comparación entre modelos, errores curados y preguntas para revisión clínica externa.
 - Curación posterior al 10: `scripts/export/curar_dossier_ips.py` genera `data/outputs/dossier_ips_curado_<timestamp>/` como dossier reusable para revisión clínica externa y futura etapa de xAI.
 - `analysis/10_validacion_clinica_ips.ipynb` funciona como capa legible y reutiliza scripts backend para generación reproducible de artefactos clínicos (`generar_material_validacion_ips.py`, `curar_dossier_ips.py`, `cerrar_fase_ips.py`).
 

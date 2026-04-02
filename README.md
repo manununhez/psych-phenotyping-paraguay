@@ -75,6 +75,12 @@ Cadena de trazabilidad (sin saltos):
 12. `notebooks/pipeline/09b_cierre_modelos_dev.ipynb`
 13. `notebooks/analysis/09_analisis_errores_hibrido.ipynb`
 
+## Módulo secundario de revisión clínica externa
+- `notebooks/analysis/10_validacion_clinica_ips.ipynb`
+- Consume artefactos ya cerrados en `dev`.
+- No redefine la selección experimental.
+- Prepara material para revisión clínica externa y casos reutilizables para futura xAI.
+
 ## Diferencia entre `dev` y `test`
 - `dev`: comparación de líneas base, barridos, ablaciones y selección del modelo final.
 - `test`: evaluación final única de la lista corta congelada.

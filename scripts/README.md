@@ -12,7 +12,7 @@ La superficie pública de scripts se centra en el flujo experimental principal `
 - freeze léxico;
 - cierre formal en `dev`.
 
-Los scripts de exportación clínica o de uso interno quedan fuera de esta guía principal.
+Además, el repositorio expone un módulo secundario de revisión clínica externa sobre artefactos ya cerrados en `dev`.
 
 ## Estructura pública mínima
 ```text
@@ -30,6 +30,10 @@ scripts/
     cerrar_modelos_dev.py
     registrar_artefactos_backbone.py
     generar_freeze_lexico.py
+  export/
+    generar_material_validacion_ips.py
+    curar_dossier_ips.py
+    cerrar_fase_ips.py
   devtools/
     split_batches.py
 ```
@@ -129,6 +133,17 @@ Salidas del cierre:
 - `data/outputs/cierre_modelos_dev_<timestamp>/decision_modelo_final.json`
 - `data/outputs/cierre_modelos_dev_<timestamp>/lista_modelos_para_test.json`
 - `data/outputs/cierre_modelos_dev_<timestamp>/riesgos_y_limitaciones_dev.md`
+
+## Módulo secundario de revisión clínica externa
+- Notebook orquestador: `notebooks/analysis/10_validacion_clinica_ips.ipynb`.
+- Scripts:
+  - `scripts/export/generar_material_validacion_ips.py`
+  - `scripts/export/curar_dossier_ips.py`
+  - `scripts/export/cerrar_fase_ips.py`
+- Alcance:
+  - consume artefactos ya cerrados en `dev`;
+  - no reabre entrenamiento ni redefine la shortlist;
+  - prepara material para revisión clínica externa y casos reutilizables para futura xAI.
 
 ## Manifiesto de artefactos de backbone
 - Script: `scripts/audit/registrar_artefactos_backbone.py`.
