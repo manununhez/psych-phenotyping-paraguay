@@ -6,6 +6,8 @@ y garantizar consistencia entre notebooks.
 """
 
 from pathlib import Path
+import json
+import re
 import pandas as pd
 import unicodedata
 
@@ -288,6 +290,193 @@ def ensure_dir(path_like):
     p = Path(path_like)
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+
+# ============================================================
+# RESOLUCIÓN DE ARTEFACTOS VERSIONADOS
+# ============================================================
+
+_CANONICAL_TRAIN_RE = re.compile(r"train_\d{8}_\d{6}$")
+
+
+def _strip_feature_suffix(run_id: str) -> str:
+    if run_id.endswith('_core'):
+        return run_id[:-5]
+    if run_id.endswith('_py'):
+        return run_id[:-3]
+    return run_id
+
+
+def _feature_run_mtime(processed_path: Path, base_run_id: str) -> float:
+    paths = [
+        processed_path / f'{base_run_id}_core',
+        processed_path / f'{base_run_id}_py',
+        processed_path / f'{base_run_id}_config.json',
+    ]
+    mtimes = [p.stat().st_mtime for p in paths if p.exists()]
+    if not mtimes:
+        raise FileNotFoundError(f'No se encontraron artefactos para la corrida de features: {base_run_id}')
+    return max(mtimes)
+
+
+def latest_feature_base(processed_path: Path) -> str | None:
+    """
+    Devuelve la corrida `fe_*` más reciente por mtime real, exigiendo que exista el par
+    completo `<base>_core` y `<base>_py`.
+    """
+    candidates = []
+    for core_dir in processed_path.glob('fe_*_core'):
+        if not core_dir.is_dir():
+            continue
+        base_run_id = _strip_feature_suffix(core_dir.name)
+        py_dir = processed_path / f'{base_run_id}_py'
+        if not py_dir.is_dir():
+            continue
+        candidates.append(( _feature_run_mtime(processed_path, base_run_id), base_run_id))
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda x: (x[0], x[1]))
+    return candidates[-1][1]
+
+
+def resolve_feature_run_ids(
+    processed_path: Path,
+    base_run_id: str | None = None,
+    core_run_id: str | None = None,
+    py_run_id: str | None = None,
+) -> tuple[str, str, str]:
+    """
+    Resuelve una corrida de features consistente (`base`, `core`, `py`).
+
+    Prioridad:
+    1. `base_run_id` explícito.
+    2. `core_run_id` / `py_run_id` explícitos.
+    3. última corrida completa por mtime real.
+    """
+    explicit_base = _strip_feature_suffix(base_run_id) if base_run_id else None
+    explicit_core = core_run_id or None
+    explicit_py = py_run_id or None
+
+    if explicit_core and explicit_py:
+        base_from_core = _strip_feature_suffix(explicit_core)
+        base_from_py = _strip_feature_suffix(explicit_py)
+        if base_from_core != base_from_py:
+            raise ValueError(
+                f'Corridas de features inconsistentes: {explicit_core} vs {explicit_py}. '
+                'Core y py deben pertenecer a la misma corrida base.'
+            )
+        resolved_base = explicit_base or base_from_core
+        if explicit_base and explicit_base != base_from_core:
+            raise ValueError(
+                f'Conflicto entre TRAIN_FEATURE_RUN_BASE={explicit_base} '
+                f'y TRAIN_FEATURE_RUN_ID_*={base_from_core}.'
+            )
+    elif explicit_core or explicit_py:
+        resolved_base = explicit_base or _strip_feature_suffix(explicit_core or explicit_py)
+    else:
+        resolved_base = explicit_base or latest_feature_base(processed_path)
+
+    if not resolved_base:
+        raise FileNotFoundError('No se detectaron corridas completas de features en data/processed/fe_*_{core,py}.')
+
+    resolved_core = explicit_core or f'{resolved_base}_core'
+    resolved_py = explicit_py or f'{resolved_base}_py'
+
+    core_dir = processed_path / resolved_core
+    py_dir = processed_path / resolved_py
+    if not core_dir.is_dir() or not py_dir.is_dir():
+        raise FileNotFoundError(
+            f'La corrida de features seleccionada no está completa: '
+            f'core={core_dir.exists()} py={py_dir.exists()} base={resolved_base}'
+        )
+
+    return resolved_base, resolved_core, resolved_py
+
+
+def latest_train_run(outputs_path: Path) -> str | None:
+    """
+    Devuelve la corrida base `train_YYYYMMDD_HHMMSS` más reciente si existe.
+    Si no existe una corrida canónica, usa la última `train_*` por mtime.
+    """
+    dirs = [p for p in outputs_path.glob('train_*') if p.is_dir()]
+    if not dirs:
+        return None
+
+    def _is_usable_train_dir(p: Path) -> bool:
+        if not (p / 'resumen_entrenamiento.json').exists():
+            return False
+        return any(p.glob('comparacion_modelos_*.csv'))
+
+    usable = [p for p in dirs if _is_usable_train_dir(p)]
+    pool_base = usable or dirs
+
+    canonical = [p for p in pool_base if _CANONICAL_TRAIN_RE.fullmatch(p.name)]
+    pool = canonical or pool_base
+    latest = max(pool, key=lambda p: p.stat().st_mtime)
+    return latest.name
+
+
+def extract_feature_base_from_train_dir(train_dir: Path) -> str | None:
+    """
+    Recupera la corrida base de features usada por una corrida `train_*`.
+    """
+    summary_path = train_dir / 'resumen_entrenamiento.json'
+    if not summary_path.exists():
+        return None
+
+    try:
+        payload = json.loads(summary_path.read_text(encoding='utf-8'))
+    except Exception:
+        return None
+
+    core_run = (payload.get('feature_run_id_core') or '').strip()
+    py_run = (payload.get('feature_run_id_py') or '').strip()
+    if core_run:
+        return _strip_feature_suffix(core_run)
+    if py_run:
+        return _strip_feature_suffix(py_run)
+    return None
+
+
+def latest_matching_barrido(
+    outputs_path: Path,
+    ref_train_run: str | None = None,
+    feature_run_base: str | None = None,
+) -> Path | None:
+    """
+    Devuelve el barrido más reciente que coincida con `ref_train_run` y/o `feature_run_base`.
+    Si no hay coincidencia, retorna `None`.
+    """
+    root = outputs_path / 'barridos_hibridos'
+    if not root.exists():
+        return None
+
+    dirs = sorted([p for p in root.iterdir() if p.is_dir()], key=lambda p: p.stat().st_mtime, reverse=True)
+    for d in dirs:
+        resumen = d / 'resumen_barrido.json'
+        if not resumen.exists():
+            continue
+        try:
+            payload = json.loads(resumen.read_text(encoding='utf-8'))
+        except Exception:
+            continue
+
+        if ref_train_run and payload.get('ref_train_run') != ref_train_run:
+            continue
+        if feature_run_base and payload.get('feature_run_base') != feature_run_base:
+            continue
+        return d
+
+    return None
+
+
+def latest_freeze_dir(outputs_path: Path) -> Path | None:
+    dirs = [p for p in outputs_path.glob('freeze_lexico_*') if p.is_dir()]
+    if not dirs:
+        return None
+    return max(dirs, key=lambda p: p.stat().st_mtime)
 
 
 # ============================================================

@@ -33,8 +33,10 @@ VALID_TRANSFORMER_MODELS = set(BACKBONE_TO_MODEL.values())
 
 def _find_latest_dir(base: Path, prefix: str) -> Path | None:
     pattern = f"{prefix}_*" if prefix else "*"
-    candidates = sorted(p for p in base.glob(pattern) if p.is_dir())
-    return candidates[-1] if candidates else None
+    candidates = [p for p in base.glob(pattern) if p.is_dir()]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda p: p.stat().st_mtime)
 
 
 def _safe_json(path: Path) -> tuple[dict | None, str | None]:
@@ -46,6 +48,15 @@ def _safe_json(path: Path) -> tuple[dict | None, str | None]:
         return json.loads(path.read_text(encoding="utf-8")), None
     except Exception as e:
         return None, f"json_invalido: {e}"
+
+
+def _freeze_version(freeze_info: dict, *keys: str) -> str | None:
+    versiones = (freeze_info or {}).get("versiones_congeladas", {}) or {}
+    for key in keys:
+        version = ((versiones.get(key) or {}).get("version"))
+        if version:
+            return version
+    return None
 
 
 def _normalizar_modelo_transformer(raw: str | None) -> str | None:
@@ -881,12 +892,8 @@ def main() -> int:
             "freeze_id": freeze_info.get("freeze_id", freeze_dir.name),
             "ruta": str(freeze_dir),
             "commit": freeze_info.get("repositorio", {}).get("git_commit_short"),
-            "version_core": freeze_info.get("versiones_congeladas", {})
-            .get("Concept_PY_Core", {})
-            .get("version"),
-            "version_py_lexicon": freeze_info.get("versiones_congeladas", {})
-            .get("Concept_PY_Lexicon", {})
-            .get("version"),
+            "version_core": _freeze_version(freeze_info, "Concept_Core"),
+            "version_py": _freeze_version(freeze_info, "Concept_PY"),
         },
         "regla_decision": {
             "principal": "score_final_seleccion (rúbrica multicriterio); macro_f1 es criterio principal dentro del bloque cuantitativo",
@@ -994,7 +1001,7 @@ def main() -> int:
     md.append(f"- Freeze léxico/reglas: `{decision['freeze_lexico']['freeze_id']}`")
     md.append(f"- Versión Core congelada: `{decision['freeze_lexico']['version_core']}`")
     md.append(
-        f"- Versión PY_Lexicon congelada: `{decision['freeze_lexico']['version_py_lexicon']}`"
+        f"- Versión PY congelada: `{decision['freeze_lexico']['version_py']}`"
     )
     md.append("")
     md.append("## Regla de decisión aplicada")

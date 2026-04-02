@@ -55,7 +55,7 @@ SLEEP_SECS = float(os.environ.get("SLEEP_SECS", "2.0"))
 ALLOWED_FENOTIPOS = [
     "Abulia",
     "Agitacinpsicomotora",
-    "Alcoholismo",
+    "Alcohol",
     "AngustiaMiedoTemor",
     "Anhedonia",
     "Animodeprimido",
@@ -103,30 +103,100 @@ ALLOWED_FENOTIPOS = [
     "UsoSustancias",
 ]
 
-# Siglas IPS + formas frecuentes ya normalizadas
+# Siglas IPS + variantes frecuentes presentes en el léxico congelado.
 MED_MAP = {
     "FXT": "fluoxetina",
+    "FLX": "fluoxetina",
     "ALP": "alprazolam",
     "PREG": "pregabalina",
     "PGB": "pregabalina",
+    "PGL": "pregabalina",
+    "PREGABA": "pregabalina",
     "TRA": "trazodona",
+    "TRAZO": "trazodona",
+    "TRZ": "trazodona",
     "CLZ": "clonazepam",
     "CNZ": "clonazepam",
+    "CLONAZ": "clonazepam",
+    "CLONAZEP": "clonazepam",
+    "CLONAZEPAN": "clonazepam",
+    "CLONAZEPMA": "clonazepam",
+    "CLONAZEAPM": "clonazepam",
     "VLF": "venlafaxina",
     "VNF": "venlafaxina",
+    "VFX": "venlafaxina",
+    "VENLA": "venlafaxina",
     "QTP": "quetiapina",
+    "QTT": "quetiapina",
+    "QTPPA": "quetiapina",
     "SERT": "sertralina",
+    "SRT": "sertralina",
+    "SERTRA": "sertralina",
+    "PXT": "paroxetina",
+    "TALOPRAM": "escitalopram",
+    "DLX": "duloxetina",
+    "DULO": "duloxetina",
+    "DZP": "diazepam",
+    "DIAZEPAN": "diazepam",
+    "MDZ": "midazolam",
+    "BSP": "buspirona",
+    "ZLP": "zolpidem",
+    "ZPD": "zolpidem",
+    "ZOLPIDEN": "zolpidem",
+    "MRT": "mirtazapina",
+    "CBZ": "carbamazepina",
+    "ARBAMAZEPINA": "carbamazepina",
+    "CARBAMEZEPINA": "carbamazepina",
+    "LMT": "lamotrigina",
+    "RSP": "risperidona",
+    "RISP": "risperidona",
+    "OLZ": "olanzapina",
+    "BIPE": "biperideno",
+    "DONEPECILO": "donepezilo",
+    "DONEPE": "donepezilo",
+    "DNLP": "donepezilo",
+    "LDOPA": "levodopa",
+    "FNB": "fenobarbital",
+    "VALP": "valproato",
+    "VALPROICO": "valproato",
+    "ACIDO VALPROICO": "valproato",
+    "ÁCIDO VALPROICO": "valproato",
     "FLUOXETINA": "fluoxetina",
     "CLONAZEPAM": "clonazepam",
     "ALPRAZOLAM": "alprazolam",
+    "DIAZEPAM": "diazepam",
+    "LORAZEPAM": "lorazepam",
+    "BROMAZEPAM": "bromazepam",
+    "MIDAZOLAM": "midazolam",
+    "BUSPIRONA": "buspirona",
     "TRAZODONA": "trazodona",
     "QUETIAPINA": "quetiapina",
     "SERTRALINA": "sertralina",
+    "PAROXETINA": "paroxetina",
+    "ESCITALOPRAM": "escitalopram",
     "VENLAFAXINA": "venlafaxina",
+    "DULOXETINA": "duloxetina",
     "PREGABALINA": "pregabalina",
     "AMITRIPTILINA": "amitriptilina",
+    "BUPROPION": "bupropion",
+    "MIRTAZAPINA": "mirtazapina",
+    "CARBAMAZEPINA": "carbamazepina",
+    "OXCARBAZEPINA": "oxcarbazepina",
+    "LAMOTRIGINA": "lamotrigina",
+    "LITIO": "litio",
     "OLANZAPINA": "olanzapina",
+    "HALOPERIDOL": "haloperidol",
+    "CLOZAPINA": "clozapina",
+    "RISPERIDONA": "risperidona",
+    "BIPERIDENO": "biperideno",
+    "DONEPEZILO": "donepezilo",
+    "LEVODOPA": "levodopa",
+    "NIMODIPINA": "nimodipina",
+    "FENOBARBITAL": "fenobarbital",
     "VALPROATO": "valproato",
+    "ARIPIPRAZOL": "aripiprazol",
+    "LEVOMEPROMAZINA": "levomepromazina",
+    "METILFENIDATO": "metilfenidato",
     "ZOLPIDEM": "zolpidem",
 }
 
@@ -209,8 +279,8 @@ ALIASES_TO_ONTOLOGY = {
     _norm_key("disforia"): "Disforia",
 
     # sustancias / alcohol
-    _norm_key("alcohol"): "Alcoholismo",
-    _norm_key("consumo_alcohol"): "Alcoholismo",
+    _norm_key("alcohol"): "Alcohol",
+    _norm_key("consumo_alcohol"): "Alcohol",
     _norm_key("uso_sustancias"): "UsoSustancias",
     _norm_key("uso de sustancias"): "UsoSustancias",
     _norm_key("consumo_sustancias"): "UsoSustancias",
@@ -218,10 +288,11 @@ ALIASES_TO_ONTOLOGY = {
 
     # variantes rotas / antiguas
     _norm_key("usodesustancias"): "UsoSustancias",
-    _norm_key("alcoholismo"): "Alcoholismo",
+    _norm_key("alcoholismo"): "Alcohol",
 }
 
 ALLOWED_LOOKUP = {_norm_key(x): x for x in ALLOWED_FENOTIPOS}
+MED_LOOKUP = {_norm_key(k): v for k, v in MED_MAP.items()}
 
 SYSTEM_PROMPT = f"""Actúa como auditor clínico cNLP especializado en Paraguay.
 
@@ -308,6 +379,9 @@ def _norm_med(m: str) -> Optional[str]:
     up = m.upper()
     if up in MED_MAP:
         return MED_MAP[up]
+    key = _norm_key(m)
+    if key in MED_LOOKUP:
+        return MED_LOOKUP[key]
     return m.lower()
 
 def normalize_symptom_label(label: str) -> Optional[str]:

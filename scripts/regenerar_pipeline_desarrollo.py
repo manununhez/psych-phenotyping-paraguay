@@ -112,7 +112,7 @@ STEPS: tuple[Step, ...] = (
     Step(
         "barrido_hibrido_dev",
         "script",
-        "scripts/ejecutar_barrido_hibrido.py",
+        "scripts/ejecutar_barrido_ablacion_hibrido.py",
         "Barrido y ablaciones híbridas en dev (fases A/B/C).",
         ("data/outputs/barridos_hibridos/*/tabla_maestra_comparativa.csv",),
     ),
@@ -232,11 +232,19 @@ def _latest_train_run(repo: Path) -> str | None:
     dirs = [p for p in base.glob("train_*") if p.is_dir()]
     if not dirs:
         return None
-    canonical = [p for p in dirs if re.fullmatch(r"train_\d{8}_\d{6}", p.name)]
+
+    def _is_usable_train_dir(p: Path) -> bool:
+        if not (p / "resumen_entrenamiento.json").exists():
+            return False
+        return any(p.glob("comparacion_modelos_*.csv"))
+
+    usable = [p for p in dirs if _is_usable_train_dir(p)]
+    pool_base = usable or dirs
+    canonical = [p for p in pool_base if re.fullmatch(r"train_\d{8}_\d{6}", p.name)]
     if canonical:
         latest = max(canonical, key=lambda p: p.stat().st_mtime)
     else:
-        latest = max(dirs, key=lambda p: p.stat().st_mtime)
+        latest = max(pool_base, key=lambda p: p.stat().st_mtime)
     return latest.name
 
 
@@ -245,11 +253,19 @@ def _latest_feature_base(repo: Path) -> str | None:
     dirs = [p for p in base.glob("fe_*_core") if p.is_dir()]
     if not dirs:
         return None
-    latest = max(dirs, key=lambda p: p.stat().st_mtime)
-    name = latest.name
-    if name.endswith("_core"):
-        return name[:-5]
-    return name
+    paired = []
+    for core_dir in dirs:
+        name = core_dir.name
+        base_name = name[:-5] if name.endswith("_core") else name
+        py_dir = base / f"{base_name}_py"
+        if not py_dir.is_dir():
+            continue
+        paired.append((max(core_dir.stat().st_mtime, py_dir.stat().st_mtime), base_name))
+    if not paired:
+        return None
+    paired.sort(key=lambda x: (x[0], x[1]))
+    latest = paired[-1][1]
+    return latest
 
 
 def _slice_steps(desde: str | None, hasta: str | None, steps: Sequence[Step]) -> list[Step]:

@@ -148,7 +148,7 @@ def cargar_literales_layer(layer_dir: Path) -> dict[tuple[str, str], set[str]]:
 
 def diff_terminos_json(prev_snap: Path, curr_snap: Path) -> tuple[list[dict], dict]:
     base = Path("Spanish_Psych_Phenotyping_PY/escribe/patterns")
-    layers = ["Concept_PY", "Concept_PY_Lexicon"]
+    layers = ["Concept_Core", "Concept_PY"]
 
     prev_map: dict[tuple[str, str], set[str]] = {}
     curr_map: dict[tuple[str, str], set[str]] = {}
@@ -221,7 +221,7 @@ def cargar_manifest(path_csv: Path) -> set[tuple[str, str, str, str, str]]:
 
 def diff_manifest(prev_snap: Path, curr_snap: Path) -> tuple[list[dict], dict]:
     rel_manifest = Path(
-        "Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_PY_Lexicon/lexicon_manifest.csv"
+        "Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_PY/lexicon_manifest.csv"
     )
     prev_m = cargar_manifest(prev_snap / rel_manifest)
     curr_m = cargar_manifest(curr_snap / rel_manifest)
@@ -232,7 +232,7 @@ def diff_manifest(prev_snap: Path, curr_snap: Path) -> tuple[list[dict], dict]:
             {
                 "origen": "manifest",
                 "tipo_cambio": "termino_agregado",
-                "layer": "Concept_PY_Lexicon",
+                "layer": "Concept_PY",
                 "archivo": "lexicon_manifest.csv",
                 "termino": item[1],
                 "term_original": item[0],
@@ -246,7 +246,7 @@ def diff_manifest(prev_snap: Path, curr_snap: Path) -> tuple[list[dict], dict]:
             {
                 "origen": "manifest",
                 "tipo_cambio": "termino_eliminado",
-                "layer": "Concept_PY_Lexicon",
+                "layer": "Concept_PY",
                 "archivo": "lexicon_manifest.csv",
                 "termino": item[1],
                 "term_original": item[0],
@@ -278,17 +278,6 @@ def main() -> int:
     parser.add_argument("--output-root", default="data/outputs", help="Directorio de salida")
     parser.add_argument("--freeze-id", default="", help="ID fijo de freeze. Si vacio: freeze_lexico_<timestamp>")
     parser.add_argument("--comparar-con", default="", help="Ruta de freeze previo para diff. Si vacio: autodetecta")
-    parser.add_argument(
-        "--ips-excel",
-        default="data/IPS_validacion.xlsx",
-        help="Ruta del Excel de validacion IPS",
-    )
-    parser.add_argument(
-        "--incluir-ips-excel",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Incluir snapshot del Excel IPS si existe",
-    )
     parser.add_argument(
         "--snapshot-notebooks",
         action=argparse.BooleanOptionalAction,
@@ -322,25 +311,25 @@ def main() -> int:
             observaciones="Baseline historico de reglas, congelado para trazabilidad.",
         ),
         Recurso(
-            nombre="Concept_PY_Core",
+            nombre="Concept_Core",
             tipo="reglas_lexico_core",
-            ruta_relativa="Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_PY",
+            ruta_relativa="Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_Core",
             snapshot=True,
             observaciones="Nucleo clinico depurado validado para el pipeline final.",
         ),
         Recurso(
-            nombre="Concept_PY_Lexicon",
+            nombre="Concept_PY",
             tipo="reglas_lexico_adaptacion_regional",
-            ruta_relativa="Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_PY_Lexicon",
+            ruta_relativa="Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_PY",
             snapshot=True,
             observaciones="Capa regional paraguaya congelada para evaluacion final.",
         ),
         Recurso(
             nombre="lexicon_manifest",
             tipo="manifiesto_lexico",
-            ruta_relativa="Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_PY_Lexicon/lexicon_manifest.csv",
+            ruta_relativa="Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_PY/lexicon_manifest.csv",
             snapshot=True,
-            observaciones="Manifiesto de variantes y mapeo canonico de PY_Lexicon.",
+            observaciones="Manifiesto de variantes y mapeo canónico de la capa regional PY.",
         ),
         Recurso(
             nombre="ConText_ES",
@@ -368,21 +357,7 @@ def main() -> int:
             tipo="script_auditoria",
             ruta_relativa="scripts/audit/audit_core.py",
             snapshot=True,
-            observaciones="Auditoria de brecha entre CO/Core/Lexicon.",
-        ),
-        Recurso(
-            nombre="script_freeze_core_desde_excel",
-            tipo="script_transformacion_reglas",
-            ruta_relativa="scripts/audit/freeze_core_from_excel.py",
-            snapshot=True,
-            observaciones="Consolidacion de reglas desde Excel IPS (no ejecutado automaticamente).",
-        ),
-        Recurso(
-            nombre="script_diff_medicacion_excel_repo",
-            tipo="script_auditoria_medicacion",
-            ruta_relativa="scripts/audit/diff_meds_excel_repo.py",
-            snapshot=True,
-            observaciones="Comparacion de medicacion entre planilla y repo.",
+            observaciones="Auditoría de brecha entre CO/Core/PY.",
         ),
         Recurso(
             nombre="script_llm_extraccion",
@@ -403,7 +378,7 @@ def main() -> int:
             tipo="notebook_pipeline",
             ruta_relativa="notebooks/pipeline/03_denoising_reglas_core.ipynb",
             snapshot=bool(args.snapshot_notebooks),
-            observaciones="Consumidor de reglas Core + PY_Lexicon en pipeline.",
+            observaciones="Consumidor de reglas Core + PY en pipeline.",
         ),
         Recurso(
             nombre="notebook_features_hibridas",
@@ -413,17 +388,6 @@ def main() -> int:
             observaciones="Generador de features finales que usan reglas congeladas.",
         ),
     ]
-
-    if args.incluir_ips_excel:
-        recursos.append(
-            Recurso(
-                nombre="planilla_ips_validacion",
-                tipo="insumo_externo_validacion",
-                ruta_relativa=args.ips_excel,
-                snapshot=True,
-                observaciones="Planilla IPS usada como insumo de validacion lexical.",
-            )
-        )
 
     tabla_filas: list[dict] = []
     checksum_filas: list[dict] = []
@@ -543,7 +507,7 @@ def main() -> int:
         base_patterns = Path("Spanish_Psych_Phenotyping_PY/escribe/patterns")
         prev_map: dict[str, str] = {}
         curr_map: dict[str, str] = {}
-        for layer in ["Concept_PY", "Concept_PY_Lexicon"]:
+        for layer in ["Concept_Core", "Concept_PY"]:
             pdir = prev_snap / base_patterns / layer
             cdir = curr_snap / base_patterns / layer
             if pdir.exists():
@@ -613,12 +577,12 @@ def main() -> int:
             **meta_git,
         },
         "versiones_congeladas": {
-            "Concept_PY_Core": {
-                "ruta": "Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_PY",
+            "Concept_Core": {
+                "ruta": "Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_Core",
                 "version": f"{freeze_id}::{git_short}",
             },
-            "Concept_PY_Lexicon": {
-                "ruta": "Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_PY_Lexicon",
+            "Concept_PY": {
+                "ruta": "Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_PY",
                 "version": f"{freeze_id}::{git_short}",
             },
             "Concept_CO": {
@@ -627,8 +591,8 @@ def main() -> int:
             },
         },
         "pipeline_final_usa_archivos": [
+            "Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_Core/**",
             "Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_PY/**",
-            "Spanish_Psych_Phenotyping_PY/escribe/patterns/Concept_PY_Lexicon/**",
             "Spanish_Psych_Phenotyping_PY/configs/core_config.yml",
             "Spanish_Psych_Phenotyping_PY/escribe/patterns/ConText_ES.json",
             "Spanish_Psych_Phenotyping_PY/escribe/patterns/RuSH_ES.tsv",
@@ -666,10 +630,10 @@ def main() -> int:
     md.append("")
     md.append("## Versiones congeladas")
     md.append(
-        f"- Core congelado: `Concept_PY` version `{resumen_json['versiones_congeladas']['Concept_PY_Core']['version']}`"
+        f"- Core congelado: `Concept_Core` version `{resumen_json['versiones_congeladas']['Concept_Core']['version']}`"
     )
     md.append(
-        f"- PY congelado: `Concept_PY_Lexicon` version `{resumen_json['versiones_congeladas']['Concept_PY_Lexicon']['version']}`"
+        f"- PY congelado: `Concept_PY` version `{resumen_json['versiones_congeladas']['Concept_PY']['version']}`"
     )
     md.append(
         f"- Baseline historico congelado: `Concept_CO` version `{resumen_json['versiones_congeladas']['Concept_CO']['version']}`"
