@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-AUDITORÍA CORE (Concept_PY) vs CO (Concept_CO)
+AUDITORÍA CORE (Concept_Core) vs CO (Concept_CO)
 
 Qué hace:
 - Extrae "vocabulario" de reglas: literal + tokens de LOWER/IN de patterns.
@@ -15,8 +15,8 @@ Qué hace:
 - Exporta reportes en ./data/outputs/audit_core_YYYYmmdd_HHMMSS/
 
 Uso:
-  python scripts/audit/audit_core.py --patterns_root Spanish_Psych_Phenotyping_PY/escribe/patterns --co Concept_CO --core Concept_PY
-  python scripts/audit/audit_core.py --patterns_root Spanish_Psych_Phenotyping_PY/escribe/patterns --co Concept_CO --core Concept_PY --lexicon Concept_PY_Lexicon
+  python scripts/audit/audit_core.py --patterns_root Spanish_Psych_Phenotyping_PY/escribe/patterns --co Concept_CO --core Concept_Core
+  python scripts/audit/audit_core.py --patterns_root Spanish_Psych_Phenotyping_PY/escribe/patterns --co Concept_CO --core Concept_Core --lexicon Concept_PY
 """
 
 from __future__ import annotations
@@ -163,19 +163,32 @@ def write_csv(path: Path, rows: list[dict], fieldnames: list[str]):
         for r in rows:
             w.writerow({k: r.get(k, "") for k in fieldnames})
 
+
+def _resolve_layer_name(name: str, role: str) -> str:
+    name = str(name).strip()
+    if role == "co":
+        return "Concept_CO"
+    if role == "core":
+        if name == "Concept_Core":
+            return "Concept_Core"
+    if role == "lexicon":
+        if name == "Concept_PY":
+            return "Concept_PY"
+    return name
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--patterns_root", type=str, required=True, help="Ej: patterns o escribe/patterns")
     ap.add_argument("--co", type=str, default="Concept_CO")
-    ap.add_argument("--core", type=str, default="Concept_PY")
-    ap.add_argument("--lexicon", type=str, default="", help="Opcional: Concept_PY_Lexicon")
+    ap.add_argument("--core", type=str, default="Concept_Core")
+    ap.add_argument("--lexicon", type=str, default="", help="Opcional: Concept_PY")
     ap.add_argument("--out", type=str, default="", help="Salida. Por defecto data/outputs/audit_core_...")
     args = ap.parse_args()
 
     root = Path(args.patterns_root).resolve()
-    co_dir = root / args.co
-    core_dir = root / args.core
-    lex_dir = (root / args.lexicon) if args.lexicon else None
+    co_dir = root / _resolve_layer_name(args.co, "co")
+    core_dir = root / _resolve_layer_name(args.core, "core")
+    lex_dir = (root / _resolve_layer_name(args.lexicon, "lexicon")) if args.lexicon else None
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_dir = Path(args.out) if args.out else Path("data/outputs") / f"audit_core_{ts}"
