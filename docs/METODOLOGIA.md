@@ -96,7 +96,7 @@ El proyecto también usa un servicio LLM externo en una etapa acotada de apoyo s
 | Componente | Uso principal en el proyecto | Versión / modelo |
 |---|---|---:|
 | Gemini API | extracción semántica restringida a ontología congelada | `gemini-2.5-pro` |
-| SDK `google.genai` | cliente Python usado por `scripts/llm/run_gemini_constrained.py` | versión exacta no preservada en dependencias |
+| SDK `google.genai` | cliente Python usado por `scripts/llm/run_gemini_constrained.py` | `google-genai==1.69.0` |
 
 Detalles reproducibles actualmente visibles en código:
 - script: `scripts/llm/run_gemini_constrained.py`;
@@ -110,8 +110,8 @@ Delimitación metodológica:
 - Gemini no se usa como clasificador clínico directo;
 - se usa para extracción semántica restringida a la ontología congelada y apoyo en auditoría léxica;
 - esto es adecuado para ampliar cobertura semántica bajo control, pero no sustituye reglas clínicas ni validación experta;
-- el nivel de trazabilidad hoy preservado permite afirmar con certeza el modelo de servicio utilizado (`gemini-2.5-pro`), pero no reconstruir con precisión la versión histórica del SDK cliente;
-- si se quisiera una trazabilidad todavía más estricta en futuras corridas, convendría fijar explícitamente en dependencias la versión del SDK `google.genai`.
+- el nivel de trazabilidad hoy preservado permite afirmar con certeza tanto el modelo de servicio utilizado (`gemini-2.5-pro`) como la versión fijada del SDK cliente (`google-genai==1.69.0`);
+- si se quisiera una trazabilidad todavía más estricta en futuras corridas, convendría además registrar la versión efectiva usada en cada artefacto `latest` o manifiesto de corrida.
 
 ### Restricciones prácticas de `04c_linea_base_transformers`
 La etapa `04c` se diseñó para poder ejecutarse y regenerarse en este hardware sin asumir GPU dedicada:

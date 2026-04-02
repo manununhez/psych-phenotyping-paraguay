@@ -820,7 +820,7 @@ def main() -> int:
                 "componente": "Interpretabilidad",
                 "criterio": "aporte explicable",
                 "peso": 1.00,
-                "regla": "Favorece señal clínica interpretable para tesis/paper",
+                "regla": "Favorece señal clínica interpretable y comunicable",
             },
             {
                 "componente": "Penalización",
