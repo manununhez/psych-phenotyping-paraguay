@@ -3,6 +3,13 @@ Utilidades compartidas para notebooks de fenotipado psicológico en Paraguay.
 
 Este módulo centraliza funciones comunes para evitar duplicación de código
 y garantizar consistencia entre notebooks.
+
+Contiene tres capas de responsabilidad:
+1. helpers puros de notebook (paths, validaciones, columnas, métricas);
+2. resolución operativa de artefactos versionados (`fe_*`, `train_*`, barridos, freeze);
+3. reglas metodológicas transversales de filtrado clínico (`is_patient_negation`, `keep_entity`).
+
+Documento de apoyo: `docs/UTILS_SHARED.md`.
 """
 
 from pathlib import Path

@@ -6,10 +6,15 @@ Esta carpeta concentra la documentación pública y versionada del proyecto. La 
 1. `../README.md`: entrada general del repositorio.
 2. `DECISIONES_METODOLOGICAS_CLAVE.md`: decisiones experimentales ya cerradas.
 3. `GUIA_EJECUCION.md`: guía operativa del pipeline.
-4. `METODOLOGIA.md`: descripción metodológica pública.
-5. `LIMITACIONES.md`: límites actuales del experimento.
-6. `ESTRATEGIA_VALIDACION.md`: alcance de la validación clínica externa.
-7. `REVALIDACION_RESULTADOS_REFERENCIA.md`: resultados de referencia para reruns.
+4. `METODOLOGIA.md`: resumen ejecutivo de la metodología vigente.
+5. `METODOLOGIA_PIPELINE_COMPLETA.md`: descripción integral del pipeline, sus decisiones y la conexión entre notebooks y scripts.
+6. `METODOLOGIA_HIBRIDO_ABLACION_Y_CIERRE.md`: detalle completo de la matriz híbrida, la comparación `RF/XGB`, la ablación, la parsimonia y el cierre formal en `dev`.
+7. `ARTEFACTOS_Y_CONTRATOS.md`: contrato entre etapas, artefactos canónicos y fuentes de verdad del pipeline.
+8. `SPANISH_PSYCH_PHENOTYPING_PY.md`: explicación del submódulo clínico, sus capas y su esquema fenotípico curado.
+9. `UTILS_SHARED.md`: contrato y alcance de `notebooks/utils_shared.py`.
+10. `LIMITACIONES.md`: límites actuales del experimento.
+11. `ESTRATEGIA_VALIDACION.md`: alcance de la validación clínica externa.
+12. `REVALIDACION_RESULTADOS_REFERENCIA.md`: resultados de referencia para reruns.
 
 ## Documentos de apoyo
 - No hay documentación de apoyo pública adicional fuera de los archivos anteriores.

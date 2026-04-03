@@ -117,6 +117,11 @@ La decisión formal del modelo final queda en `notebooks/pipeline/09b_cierre_mod
 - `docs/README.md`
 - `docs/GUIA_EJECUCION.md`
 - `docs/METODOLOGIA.md`
+- `docs/METODOLOGIA_PIPELINE_COMPLETA.md`
+- `docs/METODOLOGIA_HIBRIDO_ABLACION_Y_CIERRE.md`
+- `docs/ARTEFACTOS_Y_CONTRATOS.md`
+- `docs/SPANISH_PSYCH_PHENOTYPING_PY.md`
+- `docs/UTILS_SHARED.md`
 - `docs/LIMITACIONES.md`
 - `docs/ESTRATEGIA_VALIDACION.md`
 - `docs/DECISIONES_METODOLOGICAS_CLAVE.md`
