@@ -10,4 +10,12 @@ Tercero, la cobertura léxica regional es dinámica. Aunque la adaptación `Conc
 
 Cuarto, la reproducibilidad computacional depende del entorno disponible (por ejemplo, disponibilidad de `XGBoost` y recursos para baselines Transformer). Por eso los artefactos versionados por corrida son parte del diseño metodológico y no un detalle operativo.
 
+Quinto, el universo `denoised` debe entenderse como una decisión metodológica explícita de esta fase y no como una limpieza neutral del corpus. Su propósito es alinear el espacio experimental con la tarea diferencial, pero parte del criterio de elegibilidad depende de la misma política de aseveración clínica usada luego para construir reglas explícitas. Por eso el cierre posterior debe complementarse con una sensibilidad fuera del universo purgado, sin usarla para reabrir selección de modelos.
+
+Sexto, aunque la partición por paciente evita filtración longitudinal entre conjuntos, la evaluación principal sigue realizándose a nivel de nota. Esto permite que pacientes muy documentados pesen más dentro de un mismo split. La auditoría complementaria en `dev` confirma que esta concentración no es irrelevante y justifica reportar métricas `patient-weighted` y `patient-aggregated` como lectura secundaria.
+
+Séptimo, el corpus crudo contiene variables como sexo y fecha de nacimiento, pero estas no forman parte del dataset experimental ni del pipeline principal de modelado. Por tanto, los resultados deben interpretarse como clasificación textual supervisada sobre el universo vigente, no como desempeño ajustado por subgrupos. La auditoría descriptiva de subgrupos en `dev` muestra heterogeneidad exploratoria, pero con tamaños pequeños y sin permitir inferencias de equidad ni causalidad.
+
+Octavo, la explicabilidad no debe plantearse como interpretación clínica de cada dimensión latente de los embeddings. La estrategia compatible con el modelo final consiste en aplicar SHAP sobre el clasificador tabular XGB y leer las contribuciones por familias de variables, separando `ctx_beto_*` de `rule_*`. La auditoría actual muestra que el peso predictivo global del modelo final en `dev` está dominado por el bloque contextual, mientras que las reglas clínicas aportan menos globalmente aunque conservan valor para trazabilidad local y análisis de casos.
+
 Estas limitaciones no invalidan el enfoque; delimitan su alcance y orientan el trabajo futuro hacia validación externa y auditoría léxica continua.

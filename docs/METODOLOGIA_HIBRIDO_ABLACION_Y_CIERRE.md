@@ -641,6 +641,51 @@ La pregunta del cierre híbrido es otra:
 
 Por eso es posible retener una variante híbrida contenida aunque `TF-IDF` o `ROBERTA_CLINICAL` sigan siendo referencias fuertes en `dev`.
 
+## Robustecimiento secundario sobre `dev`
+Después del cierre formal se ejecutó una auditoría secundaria para revisar tres riesgos: concentración documental por paciente, desempeño específico en `ansiedad` y explicabilidad mínima del XGB final.
+
+Esta auditoría no reabre la selección de modelo. Usa la shortlist y los artefactos congelados para medir robustez antes de abrir `test`.
+
+### Métricas por nivel de agregación
+La evaluación principal sigue siendo por nota, pero se añadieron dos lecturas complementarias:
+
+- `patient-weighted`: cada nota pesa `1 / n_notas_paciente`;
+- `patient-aggregated`: se agrega una predicción por paciente con regla reproducible.
+
+| Modelo | Macro F1 note-level | Macro F1 patient-weighted | Macro F1 patient-aggregated | AP ansiedad |
+|---|---:|---:|---:|---:|
+| `TF-IDF` | `0.740564` | `0.751384` | `0.887500` | `0.725725` |
+| `ROBERTA_CLINICAL` | `0.741078` | `0.768400` | `0.828571` | `0.655111` |
+| híbrido final `py|XGB` | `0.728894` | `0.692788` | `0.750000` | `0.589144` |
+
+La concentración documental en `dev_denoised` no es irrelevante: el híbrido final baja de `macro_f1 = 0.728894` a `0.692788` bajo lectura `patient-weighted`. En cambio, TF-IDF mantiene un comportamiento comparativamente fuerte en las lecturas secundarias.
+
+### Sensibilidad con pesos de entrenamiento
+También se ejecutó una única variante de sensibilidad con:
+
+```text
+sample_weight = 1 / n_notas_paciente_train
+```
+
+El resultado fue negativo: el híbrido ponderado bajó a `macro_f1 = 0.707644`, `f1_ansiedad = 0.572973` y `AP ansiedad = 0.569447`. Por tanto, no se adopta como nuevo cierre ni se interpreta como nueva competencia de modelos. Sirve únicamente como control metodológico.
+
+### Ansiedad, PR-AUC y umbral
+La auditoría confirma que `ansiedad` sigue siendo la clase más débil. En Average Precision para `ansiedad`, el híbrido final alcanza `0.589144`, por debajo de TF-IDF (`0.725725`) y `ROBERTA_CLINICAL` (`0.655111`).
+
+Se exploró el umbral del híbrido en `dev`. El umbral canónico `0.50` queda como referencia principal. El mejor umbral observado en `dev` para F1 de ansiedad fue `0.466311`, pero su mejora fue marginal, por lo que no conviene mover el umbral oficial salvo pre-especificación explícita antes de abrir `test`.
+
+### SHAP mínimo sobre el XGB final
+La auditoría SHAP se ejecutó sobre el XGB final congelado. El modelo usa `861` columnas:
+
+- `768` columnas `ctx_beto_*`;
+- `45` columnas `rule_*`;
+- `47` columnas `niega_*`;
+- `has_clinical_signal`.
+
+No usa `rule_medication_*`, `sent_*`, `template`, `feat_*` fusionadas ni LLM en la variante final.
+
+La importancia SHAP global queda dominada por `ctx_beto_*`. Las reglas clínicas aportan menos globalmente, aunque conservan valor para trazabilidad local y análisis de casos. La lectura correcta es que el modelo final es un XGB tabular parsimonioso con embeddings BETO y reglas auditables; no un clasificador principalmente simbólico.
+
 ## Qué significa que el híbrido final sea parsimonioso
 En la corrida vigente, el híbrido retenido es:
 
@@ -670,7 +715,7 @@ Notebook:
 Su función es:
 - verificar cómo falla el híbrido seleccionado;
 - identificar asimetrías entre clases;
-- dejar material interpretable y reusable para revisión clínica externa y futura xAI.
+- dejar material interpretable y reusable para revisión clínica externa y xAI.
 
 Es importante porque la consistencia del cierre no es solo numérica. También debe sostenerse al mirar los errores del modelo efectivamente retenido.
 

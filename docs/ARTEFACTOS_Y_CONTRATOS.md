@@ -301,6 +301,34 @@ Salidas:
 Fuente de verdad:
 - el artefacto de cierre de `09b` manda sobre qué modelo debe analizarse.
 
+### 09c. Auditoría y validación secundaria en `dev`
+Notebook:
+- `notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb`
+
+Script:
+- `scripts/audit/generar_auditoria_validacion_secundaria_dev.py`
+
+Entrada:
+- `decision_modelo_final.json`
+- predicciones del modelo final congelado
+- baselines de `dev`
+- `dataset_base`, `dataset_denoised` y splits denoised
+- `ips_raw.csv` solo para auditoría demográfica descriptiva
+
+Salidas:
+- `data/outputs/auditoria_final_caseC_validacion_secundaria/resumen_auditoria_validacion_secundaria_dev.json`
+- `metricas_tres_niveles_dev.csv`
+- `metricas_auc_ap_ansiedad_dev.csv`
+- `threshold_sweep_hibrido_dev.csv`
+- `metricas_xgb_sample_weight_comparacion.csv`
+- `case_c_trace.json`
+- `shap_global_familias.csv`
+
+Contrato:
+- consume artefactos ya congelados en `dev`;
+- no reabre selección de modelo, ontología ni tarea binaria;
+- documenta robustez secundaria antes de abrir `test`.
+
 ### 10. Revisión clínica externa
 Notebook:
 - `notebooks/analysis/10_validacion_clinica_ips.ipynb`
@@ -338,6 +366,7 @@ Cuando existan, priorizar:
 - carpetas `regeneracion_desarrollo_<timestamp>/`
 
 ### Secundarios o de apoyo
+- auditoría secundaria en `dev` (`09c`)
 - material de revisión clínica externa (`10`)
 - `BASELINE_CRUDO_VS_FILTRADO.md`
 

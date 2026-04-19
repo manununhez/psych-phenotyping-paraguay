@@ -89,7 +89,7 @@ Estos valores deberían volver a salir si se ejecuta el pipeline sobre el mismo 
 | `f1_depresion_dev` | `0.8464654581509893` |
 | `n_seeds` | `3` |
 | `macro_f1_std` | `0.008118092984655741` |
-| `score_final_seleccion` | `0.7037437224066962` |
+| `score_final_seleccion` | `0.7728279736478229` |
 
 ## Decisiones metodológicas que deberían mantenerse
 | Decisión | Valor canónico |
@@ -98,8 +98,8 @@ Estos valores deberían volver a salir si se ejecuta el pipeline sobre el mismo 
 | Mejor transformer standalone | `ROBERTA_CLINICAL` |
 | Mejor backbone del híbrido | `BETO` |
 | Mejor híbrido final en `dev` | `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB` |
-| `test` | `TEST_VIRGEN` |
-| XAI | `PENDIENTE` |
+| `test` | reservado metodológicamente; auditoría formal `auditoria_test_*.md` pendiente |
+| XAI | SHAP mínimo en `dev` ejecutado; integración formal final pendiente |
 | Estado de fase | `CIERRE_DEV_REVALIDADO` |
 | `transformer` standalone y backbone del híbrido | `NO COINCIDEN` |
 | Freeze léxico preliminar | `freeze_lexico_20260401_114408` |

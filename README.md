@@ -7,7 +7,8 @@ Repositorio de investigación para clasificación probabilística de notas clín
 - En esta fase no existe clase explícita de `comorbilidad`.
 - La interpretación vigente del etiquetado es a nivel `texto/consulta`.
 - El grupo de control queda fuera del alcance actual y pasa a trabajo futuro.
-- Arquitectura híbrida congelada: reglas clínicas + normalización semántica acotada con LLM + `embeddings` contextuales (`ctx_<backbone>_*`) + sentimiento + `RandomForest`/`XGBoost`.
+- Familia híbrida explorada: reglas clínicas + normalización semántica acotada con LLM + `embeddings` contextuales (`ctx_<backbone>_*`) + sentimiento + `RandomForest`/`XGBoost`.
+- Variante híbrida final congelada en `dev`: `llm0`, `sent0`, `tpl0`, `sin_feat_sin_medication`, con `BETO` como backbone contextual y `XGBoost` como clasificador tabular.
 
 ## Selección de backbone contextual
 - `04c_linea_base_transformers.ipynb` define explícitamente la comparación de baselines Transformer en `dev` y exporta:
@@ -30,7 +31,7 @@ Cadena de trazabilidad (sin saltos):
 - La revisión clínica externa queda como fase secundaria opcional, separada del cierre experimental principal.
 - Pendientes de fase final:
   - evaluación final en `test`;
-  - etapa de xAI/explicabilidad.
+  - integración final de xAI/explicabilidad; ya existe SHAP mínimo en `dev`.
 
 ## Dependencia clínica versionada
 - `Spanish_Psych_Phenotyping_PY/` es un submódulo versionado del proyecto.
@@ -47,6 +48,8 @@ Cadena de trazabilidad (sin saltos):
 - Para regenerar el flujo experimental principal:
   - `python scripts/regenerar_pipeline_desarrollo.py --dry-run`
   - `python scripts/regenerar_pipeline_desarrollo.py --incluir-comparacion-backbones`
+- Para regenerar la auditoría secundaria pre-`test` en `dev`:
+  - `python scripts/audit/generar_auditoria_validacion_secundaria_dev.py`
 
 ## Reglas de control experimental
 - Split obligatorio: `patient-level split`.
@@ -74,23 +77,32 @@ Cadena de trazabilidad (sin saltos):
 11. `notebooks/pipeline/08_resultados_hibrido_vs_lineas_base.ipynb`
 12. `notebooks/pipeline/09b_cierre_modelos_dev.ipynb`
 13. `notebooks/analysis/09_analisis_errores_hibrido.ipynb`
+14. `notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb`
+
+## Auditoría secundaria pre-`test`
+- `notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb`
+- `scripts/audit/generar_auditoria_validacion_secundaria_dev.py`
+- Consume artefactos ya congelados en `dev`.
+- No redefine selección de modelo, tarea binaria ni ontología.
+- Reporta Caso C, métricas por paciente, AP/PR-AUC de ansiedad, umbral, `sample_weight`, subgrupos demográficos descriptivos y SHAP por familias.
 
 ## Módulo secundario de revisión clínica externa
 - `notebooks/analysis/10_validacion_clinica_ips.ipynb`
 - Consume artefactos ya cerrados en `dev`.
 - No redefine la selección experimental.
-- Prepara material para revisión clínica externa y casos reutilizables para futura xAI.
+- Prepara material para revisión clínica externa y casos reutilizables para xAI.
 
 ## Diferencia entre `dev` y `test`
 - `dev`: comparación de líneas base, barridos, ablaciones y selección del modelo final.
 - `test`: evaluación final única de la lista corta congelada.
-- En el estado actual del repositorio, la fase `test` y la fase final de xAI todavía no están integradas al flujo automático.
+- En el estado actual del repositorio, la fase `test` y la fase final de xAI todavía no están integradas al flujo automático; la auditoría SHAP mínima en `dev` queda como validación secundaria.
 
 ## Reproducción limpia del desarrollo (hasta estado actual)
 Script principal:
 - `python scripts/regenerar_pipeline_desarrollo.py --dry-run`
 - `python scripts/regenerar_pipeline_desarrollo.py`
 - `python scripts/regenerar_pipeline_desarrollo.py --incluir-comparacion-backbones`
+- `python scripts/audit/generar_auditoria_validacion_secundaria_dev.py`
 
 Con esto se reproduce el flujo de desarrollo y los artefactos de cierre en `dev`, sin ejecutar `test`.
 La decisión formal del modelo final queda en `notebooks/pipeline/09b_cierre_modelos_dev.ipynb` y también es invocable por `scripts/cerrar_modelos_dev.py`.
@@ -109,6 +121,7 @@ La decisión formal del modelo final queda en `notebooks/pipeline/09b_cierre_mod
 - Manifiesto de artefactos de backbone: `data/outputs/backbone_artifacts_manifest_latest.json`.
 - Resultados comparativos: `data/outputs/results_<run_id>/`.
 - Error analysis: `data/outputs/error_analysis_<run_id>/`.
+- Auditoría secundaria pre-`test`: `data/outputs/auditoria_final_caseC_validacion_secundaria/`.
 - Freeze léxico: `data/outputs/freeze_lexico_<timestamp>/`.
 - Cierre de modelos en `dev`: `data/outputs/cierre_modelos_dev_<timestamp>/`.
 - Regeneración: `data/outputs/regeneracion_desarrollo_<timestamp>/`.

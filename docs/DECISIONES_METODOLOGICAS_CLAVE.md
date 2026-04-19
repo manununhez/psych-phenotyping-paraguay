@@ -23,10 +23,17 @@
   - `py` = `Concept_Core` + `Concept_PY`
 
 ## Estado operativo
-- estado de `test`: `TEST_VIRGEN`;
-- estado de xAI: `PENDIENTE`;
+- estado de `test`: reservado metodológicamente; auditoría formal `auditoria_test_*.md` pendiente;
+- estado de xAI: SHAP mínimo en `dev` ejecutado; integración formal final pendiente;
 - frente formal de validación clínica: `ACTIVO`;
 - estado de la fase: `CASI_LISTO_PARA_FREEZE_OFICIAL_Y_TEST`.
+
+## Validación secundaria incorporada en `dev`
+- la evaluación principal sigue siendo a nivel nota, pero se reportan lecturas secundarias `patient-weighted` y `patient-aggregated`;
+- en el híbrido final, `macro_f1` pasa de `0.728894` a nivel nota a `0.692788` en lectura `patient-weighted`;
+- TF-IDF conserva el mejor comportamiento bruto entre las referencias evaluadas, incluyendo `patient-weighted`, `patient-aggregated` y AP para `ansiedad`;
+- la sensibilidad de entrenamiento con `sample_weight = 1 / n_notas_paciente_train` fue negativa en `dev`, por lo que no se adopta como nuevo cierre;
+- la auditoría SHAP mínima muestra predominio global de `ctx_beto_*` sobre `rule_*`; las reglas quedan como señal auditable, no como explicación dominante del XGB final.
 
 ## Alcance y límites
 - el grupo de control explícito queda fuera del alcance actual;

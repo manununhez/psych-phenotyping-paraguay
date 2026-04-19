@@ -19,7 +19,7 @@ La salida es probabilística y el diseño busca equilibrar:
 Este repositorio no resuelve todavía:
 
 - evaluación final en `test`;
-- una fase formal de xAI o explicabilidad completa;
+- una fase final de xAI o explicabilidad completa integrada al cierre posterior a `test`;
 - una formulación multiclase o multilabel;
 - una clase explícita de `comorbilidad`;
 - un grupo de control como parte del pipeline vigente.
@@ -38,7 +38,8 @@ La estrategia del proyecto no consiste en aplicar un clasificador sobre texto cr
 9. explorar ablaciones y estabilidad;
 10. cerrar formalmente la selección en `dev` con una rúbrica multicriterio;
 11. analizar errores del modelo congelado;
-12. preparar, como fase secundaria, material para revisión clínica externa y futura xAI.
+12. auditar en `dev` robustez secundaria antes de abrir `test`;
+13. preparar, como fase secundaria, material para revisión clínica externa y xAI.
 
 ## Restricciones metodológicas congeladas
 Estos elementos se tratan como invariantes del proyecto y no deben alterarse sin una decisión metodológica explícita:
@@ -102,7 +103,7 @@ Existe un contraste secundario `crudo vs filtrado`, pero su rol es metodológico
 El flujo oficial se divide en dos capas:
 
 - pipeline experimental principal: `01–09`;
-- módulo secundario de revisión clínica externa: `10`.
+- módulos secundarios de auditoría, revisión clínica externa y xAI: `09c` y `10`.
 
 ### Pipeline experimental principal
 1. `notebooks/pipeline/01_datos_eda_limpieza.ipynb`
@@ -123,7 +124,8 @@ El flujo oficial se divide en dos capas:
 16. `notebooks/analysis/09_analisis_errores_hibrido.ipynb`
 
 ### Módulo secundario
-17. `notebooks/analysis/10_validacion_clinica_ips.ipynb`
+17. `notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb`
+18. `notebooks/analysis/10_validacion_clinica_ips.ipynb`
 
 ## Qué resuelve cada etapa
 
@@ -465,9 +467,30 @@ No redefine la selección. Interpreta el comportamiento del modelo elegido.
 **Por qué es importante**
 Separa la interpretación clínica y documental de la fase de selección cuantitativa.
 
+### 09c. `09c_auditoria_validacion_secundaria_dev.ipynb`
+**Qué hace**
+Orquesta una auditoría secundaria reproducible sobre `dev` antes de abrir `test`.
+
+**Qué decide**
+No redefine el modelo final, no reabre búsqueda y no cambia la ontología.
+
+**Cómo lo hace**
+Ejecuta `scripts/audit/generar_auditoria_validacion_secundaria_dev.py`, que consume artefactos congelados del cierre en `dev` y genera:
+
+- trazabilidad del Caso C;
+- concentración documental por paciente;
+- métricas `note-level`, `patient-weighted` y `patient-aggregated`;
+- AP/PR-AUC y barrido simple de umbral para ansiedad;
+- sensibilidad con `sample_weight`;
+- auditoría descriptiva de subgrupos demográficos;
+- SHAP mínimo para XGBoost por familias de variables.
+
+**Por qué es importante**
+Convierte los controles metodológicos de la auditoría final en artefactos reproducibles sin contaminar la selección principal ni usar `test`.
+
 ### 10. `10_validacion_clinica_ips.ipynb`
 **Qué hace**
-Orquesta la revisión clínica externa y prepara material reutilizable para una futura etapa de xAI.
+Orquesta la revisión clínica externa y prepara material reutilizable para xAI.
 
 **Qué decide**
 No redefine la selección experimental ni reabre el entrenamiento.
@@ -488,13 +511,13 @@ Usa tres scripts backend:
 Cumple un rol distinto del pipeline principal:
 
 - traduce el cierre en `dev` a material legible por expertos;
-- deja casos reutilizables para futura xAI;
+- deja casos reutilizables para xAI;
 - documenta una fase de contraste experto externo.
 
 ## Scripts transversales del proyecto
 
 ### `scripts/regenerar_pipeline_desarrollo.py`
-Es el orquestador de regeneración completa del estado de desarrollo. Permite reproducir el flujo `01–09` sin ejecutar `test` ni xAI.
+Es el orquestador de regeneración completa del estado de desarrollo. Permite reproducir el flujo `01–09` sin ejecutar `test` ni la xAI final.
 
 ### `scripts/run_regeneracion_desarrollo.sh`
 Es un wrapper bash opcional del regenerador principal.
@@ -515,6 +538,22 @@ Sirve para auditar el recurso clínico y comparar capas léxicas. Es complementa
 
 ### `scripts/cerrar_modelos_dev.py`
 Es el punto de entrada estable al cierre formal; delega en `scripts/audit/cerrar_modelos_dev.py`.
+
+### `scripts/audit/generar_auditoria_validacion_secundaria_dev.py`
+Genera el paquete reproducible de auditoría secundaria pre-`test` en `dev`.
+
+**Qué resume**
+- Caso C;
+- varianza por paciente;
+- desbalance de ansiedad y umbral;
+- denoising y retención;
+- demografía descriptiva;
+- sensibilidad `sample_weight`;
+- SHAP por familias de variables;
+- inconsistencias documentales.
+
+**Por qué es importante**
+Da respaldo computacional al documento `data/outputs/auditoria_final_caseC_validacion_secundaria.md` sin convertir esos análisis en una nueva selección de modelos.
 
 ### `scripts/reportes/generar_reporte_estado_actual.py`
 Genera un snapshot consolidado del estado actual del experimento.
@@ -546,7 +585,8 @@ Es la forma más rápida de responder: cuál es el estado vigente del proyecto s
 | Freeze | `scripts/audit/generar_freeze_lexico.py` | qué versión exacta del soporte clínico se congela |
 | Cierre | `09b` | cuál es el modelo final defendible en `dev` |
 | Interpretación | `09` | cómo se comporta el modelo final en términos de errores |
-| Revisión externa | `10` | cómo traducir el cierre en `dev` a material clínico y futura xAI |
+| Auditoría secundaria | `09c` | qué controles de robustez se reportan antes de abrir `test` |
+| Revisión externa | `10` | cómo traducir el cierre en `dev` a material clínico y xAI |
 
 ## Diferencia entre preguntas experimentales que no deben mezclarse
 Este punto fue uno de los ajustes metodológicos más importantes del desarrollo.
@@ -587,8 +627,9 @@ Eso explica por qué el proyecto puede retener una variante híbrida contenida a
 El repositorio también conserva materiales metodológicos secundarios que no forman parte del benchmark canónico:
 
 - contraste `baseline_crudo_vs_filtrado` para justificar el denoising;
+- auditoría secundaria `09c` sobre `dev` antes de abrir `test`;
 - revisión clínica externa;
-- dossier curado para futura xAI.
+- dossier curado para xAI.
 
 Estos materiales son útiles para explicación y defensa metodológica, pero no redefinen la comparación principal de modelos.
 
@@ -605,6 +646,7 @@ Estos materiales son útiles para explicación y defensa metodológica, pero no 
 - `cierre_modelos_dev_<timestamp>/`
 - `error_analysis_<timestamp>/`
 - `freeze_lexico_<timestamp>/`
+- `auditoria_final_caseC_validacion_secundaria/`
 - `reporte_estado_actual_latest.json`
 
 ## Estado experimental vigente
@@ -615,13 +657,14 @@ A la fecha de este documento, el estado metodológico vigente es:
 - mejor backbone del híbrido: `BETO`;
 - mejor híbrido final en `dev`: `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB`;
 - `test`: pendiente;
-- xAI: pendiente.
+- xAI: SHAP mínimo en `dev` ejecutado; integración final pendiente.
 
 ## Cómo reproducir el estado actual sin interpretar código
 ### Camino recomendado
 ```bash
 python scripts/regenerar_pipeline_desarrollo.py --dry-run
 python scripts/regenerar_pipeline_desarrollo.py --incluir-comparacion-backbones
+python scripts/audit/generar_auditoria_validacion_secundaria_dev.py
 python scripts/reportes/generar_reporte_estado_actual.py --verbose
 ```
 
@@ -629,6 +672,7 @@ python scripts/reportes/generar_reporte_estado_actual.py --verbose
 - artefactos de todas las etapas de desarrollo;
 - punteros `latest` para selección Transformer y backbone;
 - cierre formal en `dev`;
+- auditoría secundaria reproducible sobre `dev`;
 - un reporte consolidado del estado actual.
 
 ## Resumen final
@@ -644,6 +688,6 @@ La lógica completa es:
 - explorar variantes por barrido y ablación;
 - cerrar formalmente la selección en `dev`;
 - interpretar errores del modelo congelado;
-- preparar revisión clínica externa y futura xAI como fase secundaria.
+- preparar revisión clínica externa y xAI como fase secundaria.
 
 Entender el proyecto correctamente implica respetar esa separación de preguntas. La arquitectura híbrida, el uso acotado del LLM, la elección de `BETO` por defecto en `06`, el barrido A/B/C, el freeze léxico y el cierre formal en `09b` no son detalles de implementación: son la estructura metodológica del experimento.

@@ -4,13 +4,14 @@ Esta guía cubre únicamente la regeneración hasta el cierre actual en `dev`.
 
 No incluye:
 - evaluación final en `test` (pendiente);
-- notebook final de xAI/explicabilidad (pendiente).
+- notebook final de xAI/explicabilidad (pendiente; SHAP mínimo en `dev` ya ejecutado como auditoría secundaria).
 
 ## Opción recomendada: script único
 
 ```bash
 python scripts/regenerar_pipeline_desarrollo.py --dry-run
 python scripts/regenerar_pipeline_desarrollo.py --incluir-comparacion-backbones
+python scripts/audit/generar_auditoria_validacion_secundaria_dev.py
 ```
 
 Wrapper bash opcional:
@@ -60,6 +61,15 @@ Cada corrida deja:
 14. `manifiesto_artefactos_backbone`
 15. `09b_cierre_modelos_dev`
 16. `09_analisis_errores_hibrido`
+
+## Control secundario posterior
+La auditoría secundaria pre-`test` se ejecuta después del cierre y del análisis de errores:
+
+```bash
+python scripts/audit/generar_auditoria_validacion_secundaria_dev.py
+```
+
+Este paso corresponde al notebook `notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb`. Consume artefactos congelados en `dev` y no reabre selección de modelo.
 
 ## Nota específica sobre backbone
 - `04c` define y exporta la selección del baseline Transformer.

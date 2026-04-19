@@ -17,8 +17,9 @@ Esta carpeta concentra la documentación pública y versionada del proyecto. La 
 12. `REVALIDACION_RESULTADOS_REFERENCIA.md`: resultados de referencia para reruns.
 
 ## Documentos de apoyo
-- No hay documentación de apoyo pública adicional fuera de los archivos anteriores.
-- El material interno, legacy o de trabajo personal queda fuera del frente público y se conserva localmente en `docs/legacy/`.
+- `BASELINE_CRUDO_VS_FILTRADO.md`: contraste metodológico auxiliar entre universo base y universo filtrado.
+- El material interno, legacy o de trabajo personal queda fuera del frente público y se conserva localmente en `docs/legacy/` o como archivos locales no canónicos.
+- Si existen documentos locales de presentación o checklist en `docs/`, deben leerse como insumos de trabajo y no como fuente de verdad metodológica por encima del núcleo canónico.
 
 ## Material excluido del frente público
 - `docs/legacy/` queda ignorado por Git.
@@ -26,7 +27,7 @@ Esta carpeta concentra la documentación pública y versionada del proyecto. La 
 
 ## Notas de alcance
 - La fase final de evaluación en `test` todavía no está integrada como notebook operativo en esta etapa.
-- La fase final de xAI/explicabilidad también queda pendiente para integración manual posterior.
+- La fase final de xAI/explicabilidad queda pendiente para integración posterior; ya existe una auditoría SHAP mínima sobre `dev`.
 - Los artefactos de `data/outputs/` no forman parte del repositorio público; son salidas locales regenerables.
 - La síntesis pública estable debe quedar reflejada solo en estos `.md`.
 - Cuando existan artefactos locales relevantes, usar punteros `latest` antes que carpetas con timestamp fijo.
