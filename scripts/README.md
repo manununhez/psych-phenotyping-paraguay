@@ -30,6 +30,7 @@ scripts/
     cerrar_modelos_dev.py
     registrar_artefactos_backbone.py
     generar_freeze_lexico.py
+    generar_auditoria_validacion_secundaria_dev.py
   export/
     generar_material_validacion_ips.py
     curar_dossier_ips.py
@@ -60,6 +61,7 @@ python scripts/comparar_backbones_hibrido.py --backbones beto,roberta_clinical -
 python scripts/ejecutar_barrido_ablacion_hibrido.py --eval-split dev --ref-train-run train_YYYYMMDD_HHMMSS --fases A,B,C --top-c 3
 python scripts/audit/generar_freeze_lexico.py
 python scripts/cerrar_modelos_dev.py
+python scripts/audit/generar_auditoria_validacion_secundaria_dev.py
 python scripts/reportes/generar_reporte_estado_actual.py --verbose
 ```
 
@@ -67,6 +69,7 @@ python scripts/reportes/generar_reporte_estado_actual.py --verbose
 - Script principal: `scripts/regenerar_pipeline_desarrollo.py`.
 - Wrapper opcional: `scripts/run_regeneracion_desarrollo.sh`.
 - Alcance: hasta cierre formal en `dev`, sin ejecutar `test` ni xAI.
+- La auditoría secundaria `09c` queda fuera de la selección: consume artefactos congelados en `dev` y no reabre modelos.
 - Flujo metodológico resumido:
   1. datos, split y denoising (`01`-`03`);
   2. líneas base (`04a`, `04b`, `04c`);
@@ -137,6 +140,26 @@ Salidas del cierre:
 - `data/outputs/cierre_modelos_dev_<timestamp>/lista_modelos_para_test.json`
 - `data/outputs/cierre_modelos_dev_<timestamp>/riesgos_y_limitaciones_dev.md`
 
+## Auditoría secundaria pre-`test` en `dev`
+- Notebook orquestador: `notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb`.
+- Script reproducible: `scripts/audit/generar_auditoria_validacion_secundaria_dev.py`.
+- Alcance:
+  - consume el cierre `09b`, predicciones del XGB final, baselines y splits ya congelados;
+  - reconstruye Caso C, métricas por paciente, AP/PR-AUC de ansiedad, umbral, denoising, subgrupos, sensibilidad `sample_weight` y SHAP;
+  - no reabre selección de modelo, ontología ni tarea binaria.
+- Uso:
+```bash
+python scripts/audit/generar_auditoria_validacion_secundaria_dev.py
+```
+- Salidas:
+  - `data/outputs/auditoria_final_caseC_validacion_secundaria/resumen_auditoria_validacion_secundaria_dev.json`
+  - `metricas_tres_niveles_dev.csv`
+  - `metricas_auc_ap_ansiedad_dev.csv`
+  - `threshold_sweep_hibrido_dev.csv`
+  - `metricas_xgb_sample_weight_comparacion.csv`
+  - `case_c_trace.json`
+  - `shap_global_familias.csv`
+
 ## Módulo secundario de revisión clínica externa
 - Notebook orquestador: `notebooks/analysis/10_validacion_clinica_ips.ipynb`.
 - Scripts:
@@ -146,7 +169,7 @@ Salidas del cierre:
 - Alcance:
   - consume artefactos ya cerrados en `dev`;
   - no reabre entrenamiento ni redefine la shortlist;
-  - prepara material para revisión clínica externa y casos reutilizables para futura xAI.
+  - prepara material para revisión clínica externa y casos reutilizables para xAI.
 
 ## Reporte de estado actual
 - Script: `scripts/reportes/generar_reporte_estado_actual.py`.
