@@ -15,6 +15,7 @@ Esta carpeta concentra la documentación pública y versionada del proyecto. La 
 10. `LIMITACIONES.md`: límites actuales del experimento.
 11. `ESTRATEGIA_VALIDACION.md`: alcance de la validación clínica externa.
 12. `REVALIDACION_RESULTADOS_REFERENCIA.md`: resultados de referencia para reruns.
+13. `GLOSARIO.md`: definiciones estables del vocabulario metodológico y técnico del proyecto.
 
 ## Documentos de apoyo
 - `BASELINE_CRUDO_VS_FILTRADO.md`: contraste metodológico auxiliar entre universo base y universo filtrado.

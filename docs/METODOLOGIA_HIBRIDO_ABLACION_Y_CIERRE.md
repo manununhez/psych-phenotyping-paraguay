@@ -357,6 +357,20 @@ Además permite ablación fina por:
 
 Esto vuelve trazable qué columnas quedaron realmente dentro de cada variante.
 
+### Lectura correcta de la ablación
+La ablación no reabre el problema ni cambia el universo experimental. Se ejecuta:
+
+- sobre el mismo `dataset_denoised`;
+- con el mismo split por paciente;
+- con la misma ontología congelada;
+- y bajo métricas robustas al desbalance (`macro_f1`, `balanced_accuracy`, F1 por clase).
+
+Por eso la pregunta correcta de esta etapa no es "qué combinación arbitraria da el número más alto", sino:
+
+- qué bloques siguen siendo defendibles bajo el mismo problema;
+- qué componentes agregan complejidad sin ganancia robusta;
+- y qué variante sostiene mejor el equilibrio entre rendimiento, parsimonia y auditabilidad.
+
 ## Qué significa parsimonia en este proyecto
 Parsimonia no significa "modelo pequeño" en un sentido abstracto. Significa preferir una variante que:
 

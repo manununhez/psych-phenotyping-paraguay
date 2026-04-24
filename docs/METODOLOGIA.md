@@ -56,6 +56,23 @@ El LLM se usa de manera acotada para:
 
 No se usa como clasificador clínico directo ni como generador libre de nuevas categorías diagnósticas.
 
+## Señal clínica útil, `keep_entity` y negación
+El denoising no se define por una lista ad hoc de notas "buenas" y "malas". Se apoya en una política explícita de aseveración clínica implementada en `utils_shared.keep_entity`.
+
+La regla práctica es esta:
+
+- una mención se conserva como señal clínica útil si no está en contexto histórico, hipotético ni familiar;
+- una mención afirmada se conserva como evidencia válida;
+- una mención negada solo se conserva si la negación es atribuible al paciente;
+- la negación de plantilla, del médico o de una fórmula administrativa se descarta como señal diagnóstica útil.
+
+De esa política salen dos piezas centrales del pipeline:
+
+- `has_clinical_signal = 1`: la nota conserva al menos una entidad válida para la tarea diferencial;
+- `niega_*`: la negación del paciente se preserva como señal clínica específica y no como simple ausencia de fenómeno.
+
+Esto debe leerse correctamente: no es una decisión diagnóstica final, sino una política de limpieza y normalización del EHR para evitar que el modelo aprenda ruido documental como si fuera evidencia clínica.
+
 ## Separación clave: standalone vs backbone del híbrido
 El proyecto separa dos decisiones que no deben mezclarse:
 
