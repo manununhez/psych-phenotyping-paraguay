@@ -154,18 +154,21 @@ def _git_info(repo: Path) -> dict:
         "branch": "",
         "dirty": None,
     }
+    git_dir = repo / ".git"
+    if not git_dir.exists():
+        return out
     try:
         out["commit"] = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=repo, text=True
+            ["git", "rev-parse", "HEAD"], cwd=repo, text=True, stderr=subprocess.DEVNULL
         ).strip()
         out["commit_short"] = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], cwd=repo, text=True
+            ["git", "rev-parse", "--short", "HEAD"], cwd=repo, text=True, stderr=subprocess.DEVNULL
         ).strip()
         out["branch"] = subprocess.check_output(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo, text=True
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo, text=True, stderr=subprocess.DEVNULL
         ).strip()
         status = subprocess.check_output(
-            ["git", "status", "--porcelain"], cwd=repo, text=True
+            ["git", "status", "--porcelain"], cwd=repo, text=True, stderr=subprocess.DEVNULL
         )
         out["dirty"] = bool(status.strip())
     except Exception:

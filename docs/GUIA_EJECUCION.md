@@ -6,6 +6,102 @@ No incluye:
 - evaluación final en `test` (pendiente);
 - notebook final de xAI/explicabilidad (pendiente; SHAP mínimo en `dev` ya ejecutado como auditoría secundaria).
 
+## Opción reproducible por contenedor
+
+Si prefieres aislar dependencias del sistema host, puedes usar el contenedor del proyecto.
+
+Scripts base:
+
+```bash
+bash scripts/docker_build.sh
+bash scripts/docker_up.sh
+CONTAINER_MODE=snapshot bash scripts/docker_up.sh
+bash scripts/docker_smoke_test.sh
+```
+
+Si vas a usar Gemini desde el contenedor:
+
+```bash
+cp .env.docker.example .env.docker
+```
+
+Shell interactiva:
+
+```bash
+bash scripts/docker_shell.sh
+```
+
+Apagado:
+
+```bash
+bash scripts/docker_down.sh
+```
+
+Variables útiles:
+- `CONTAINER_MODE=dev|snapshot`
+- `CONTAINER_NAME=<nombre>`
+- `IMAGE_NAME=<nombre>`
+- `IMAGE_TAG=<tag>`
+
+### Qué congela Docker y qué no
+
+Docker congela:
+- versión de Python de la imagen;
+- dependencias Python declaradas;
+- modelo spaCy base instalado en la imagen (`es_core_news_md`);
+- utilidades del sistema necesarias para el pipeline.
+
+Pero hay una diferencia operativa clave:
+- `CONTAINER_MODE=dev` monta el repositorio local en `/workspace`, así que el código ejecutado es el de tu árbol actual;
+- `CONTAINER_MODE=snapshot` usa el código copiado dentro de la imagen y solo monta `data/` si existe localmente.
+
+Docker **no** congela por sí solo:
+- datos clínicos reales;
+- claves externas (`GEMINI_API_KEY`);
+- artefactos locales de `data/outputs/` o `data/processed/`;
+- caches remotas de Hugging Face descargadas después de construir la imagen.
+
+### Inputs obligatorios
+
+Para entender el contenedor correctamente:
+
+1. **Siempre obligatorios**
+   - código del repositorio;
+   - submódulo `Spanish_Psych_Phenotyping_PY` inicializado.
+
+2. **Obligatorios solo si se corre el pipeline desde 01**
+   - `data/ips_raw.csv` disponible en el volumen local montado.
+
+3. **Obligatorios solo si se ejecuta extracción LLM**
+   - `.env.docker` con `GEMINI_API_KEY`, o variable equivalente pasada al contenedor.
+   - Puedes partir de `.env.docker.example`.
+
+4. **Obligatorios solo para reusar cierres previos**
+   - artefactos locales ya generados en `data/processed/` y `data/outputs/`.
+
+### Cuándo usar cada modo
+
+- `CONTAINER_MODE=dev`
+  - uso diario;
+  - iteración local con código y notebooks vivos;
+  - no congela el árbol fuente, solo el entorno.
+
+- `CONTAINER_MODE=snapshot`
+  - validación más cercana a un futuro repo público;
+  - el código proviene de la imagen ya construida;
+  - mantiene fuera de la imagen los datos clínicos y la caché de Hugging Face.
+
+### Nota sobre BETO y otros modelos externos
+
+El contenedor no empaqueta los pesos de `BETO`, `ROBERTA_CLINICAL` ni `ROBERTA_BIOMEDICAL`.
+
+Eso significa:
+- la lógica metodológica y los identificadores del backbone sí quedan congelados en código y notebooks;
+- los pesos se descargarán desde Hugging Face cuando una corrida los necesite;
+- la caché queda persistida localmente en `.docker_cache/huggingface/` para no descargar todo cada vez.
+
+En otras palabras: Docker congela el **entorno de ejecución**, no los datos clínicos ni todos los artefactos pesados externos por defecto.
+
 ## Opción recomendada: script único
 
 ```bash

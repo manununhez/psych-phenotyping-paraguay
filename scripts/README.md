@@ -2,6 +2,40 @@
 
 Scripts públicos de soporte al experimento.
 
+## Uso con Docker
+
+Scripts auxiliares:
+
+```bash
+bash scripts/docker_build.sh
+bash scripts/docker_up.sh
+CONTAINER_MODE=snapshot bash scripts/docker_up.sh
+bash scripts/docker_shell.sh
+bash scripts/docker_smoke_test.sh
+bash scripts/docker_down.sh
+cp .env.docker.example .env.docker
+```
+
+Propósito:
+- `docker_build.sh`: construye la imagen reproducible.
+- `docker_up.sh`: levanta un contenedor de trabajo persistente. Soporta:
+  - `CONTAINER_MODE=dev`: monta el repo local completo en `/workspace`;
+  - `CONTAINER_MODE=snapshot`: usa el código embebido en la imagen y monta solo `data/` si existe.
+- `docker_shell.sh`: abre una shell dentro del contenedor.
+- `docker_smoke_test.sh`: valida imports críticos y `--dry-run` del pipeline.
+- `docker_down.sh`: detiene y elimina el contenedor.
+
+Regla práctica:
+- en `snapshot`, el contenedor congela **código + dependencias + modelo spaCy base**;
+- en `dev`, las dependencias quedan congeladas, pero el código lo aporta el bind mount local;
+- los datos clínicos reales y las claves externas siguen viviendo fuera de la imagen.
+
+Variables útiles:
+- `CONTAINER_NAME` para correr varias instancias sin colisión;
+- `IMAGE_NAME` y `IMAGE_TAG` para etiquetar imágenes;
+- `HF_CACHE_DIR` para controlar la caché local de Hugging Face;
+- `HOST_DATA_DIR` para redirigir el montaje de `data/` en modo `snapshot`.
+
 ## Alcance
 La superficie pública de scripts se centra en el flujo experimental principal `01–09`:
 - regeneración del pipeline;

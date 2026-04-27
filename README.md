@@ -104,6 +104,20 @@ Script principal:
 - `python scripts/regenerar_pipeline_desarrollo.py --incluir-comparacion-backbones`
 - `python scripts/audit/generar_auditoria_validacion_secundaria_dev.py`
 
+Ruta por contenedor:
+- `bash scripts/docker_build.sh`
+- `bash scripts/docker_up.sh`
+- `CONTAINER_MODE=snapshot bash scripts/docker_up.sh`
+- `bash scripts/docker_smoke_test.sh`
+- `bash scripts/docker_shell.sh`
+- `cp .env.docker.example .env.docker` si vas a usar extracción LLM
+
+`docker_up.sh` soporta dos modos:
+- `dev`: monta el repo local y sirve para iterar sin reinstalar dependencias;
+- `snapshot`: usa el código embebido en la imagen y se acerca más a una futura publicación reproducible.
+
+El contenedor congela dependencias y utilidades del entorno. Los datos reales siguen montándose localmente y no se empaquetan en la imagen.
+
 Con esto se reproduce el flujo de desarrollo y los artefactos de cierre en `dev`, sin ejecutar `test`.
 La decisión formal del modelo final queda en `notebooks/pipeline/09b_cierre_modelos_dev.ipynb` y también es invocable por `scripts/cerrar_modelos_dev.py`.
 
