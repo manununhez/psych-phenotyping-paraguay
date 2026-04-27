@@ -93,9 +93,11 @@ Desktop.ini
 # LOGS / TEST / TEMP
 # ============================================================
 .env
+.env.docker
 .env.local
 *.log
 logs/
+.docker_cache/
 .pytest_cache/
 .coverage
 htmlcov/
