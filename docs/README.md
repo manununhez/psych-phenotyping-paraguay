@@ -28,8 +28,14 @@ Esta carpeta concentra la documentación pública y versionada del proyecto. La 
 
 ## Notas de alcance
 - La fase final de evaluación en `test` todavía no está integrada como notebook operativo en esta etapa.
-- La fase final de xAI/explicabilidad queda pendiente para integración posterior; ya existe una auditoría SHAP mínima sobre `dev`.
+- La fase final de xAI/explicabilidad queda pendiente para integración posterior y no forma parte del cierre técnico actual.
 - Los artefactos de `data/outputs/` no forman parte del repositorio público; son salidas locales regenerables.
 - La síntesis pública estable debe quedar reflejada solo en estos `.md`.
 - Cuando existan artefactos locales relevantes, usar punteros `latest` antes que carpetas con timestamp fijo.
 - La revisión clínica externa se documenta aquí como parte del método, no como bitácora operativa.
+
+## Cierre dev vigente
+- Modelo recomendado en `dev`: ensamble weighted soft con `ROBERTA_CLINICAL max_length=512` + ramas simbólicas `RF`.
+- Carpeta local de cierre: `data/outputs/cierre_dev_ensamble_512_20260512_155606/`.
+- `max_length=512` es la configuración principal; `256` queda como sensibilidad no adoptada.
+- `test` permanece virgen.

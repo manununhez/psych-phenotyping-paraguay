@@ -7,9 +7,16 @@ Su objetivo es servir como hoja de control para una revalidación técnica del p
 
 ## Fuentes canónicas usadas
 - `data/outputs/transformer_baseline_selection_latest.json`
+- `data/outputs/cierre_dev_ensamble_512_20260512_155606/manifest.json`
+- `data/outputs/cierre_dev_ensamble_512_20260512_155606/tabla_experimentos_dev_cierre.csv`
 - `data/outputs/comparacion_backbones_hibrido_latest.json`
 - `data/outputs/cierre_modelos_dev_20260401_114409/decision_modelo_final.json`
 - `data/outputs/results_20260401_112536/tabla_comparativa_modelos.csv`
+
+## Actualización de cierre dev
+El cierre de referencia vigente queda actualizado al ensamble por ramas con `max_length=512`.
+
+La configuración anterior basada en híbrido tabular se conserva como referencia histórica/comparativa. No debe borrarse ni sobrescribirse, pero ya no representa el mejor modelo global en `dev`.
 
 ## Advertencia importante antes de limpiar `data/`
 Si se conserva **solo** `data/ips_raw.csv`, puede regenerarse el flujo activo del pipeline, pero hay dos matices que conviene fijar desde el inicio.
@@ -80,16 +87,34 @@ Estos valores deberían volver a salir si se ejecuta el pipeline sobre el mismo 
 ### Híbrido final cerrado en `dev`
 | Campo | Valor |
 |---|---|
-| Modelo final | `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB` |
-| Perfil | `py` |
-| Clasificador | `XGB` |
-| `macro_f1_dev` | `0.7178505406520047` |
-| `balanced_accuracy_dev` | `0.7098422496570644` |
-| `f1_ansiedad_dev` | `0.5892356231530199` |
-| `f1_depresion_dev` | `0.8464654581509893` |
-| `n_seeds` | `3` |
-| `macro_f1_std` | `0.008118092984655741` |
-| `score_final_seleccion` | `0.7728279736478229` |
+| Modelo final vigente | Ensamble weighted soft `ROBERTA_CLINICAL 512 + simbólico py RF + simbólico core RF late fusion LLM` |
+| Split | `dev` |
+| `n_eval` | `343` |
+| `macro_f1_dev` | `0.7492497114274721` |
+| `balanced_accuracy_dev` | `0.7700617283950617` |
+| `weighted_f1_dev` | `0.7849091992098328` |
+| `f1_ansiedad_dev` | `0.663716814159292` |
+| `f1_depresion_dev` | `0.8347826086956521` |
+| Estado | `nuevo cierre dev recomendado; TEST_VIRGEN` |
+
+### Mejor híbrido tabular alineado a 512
+| Campo | Valor |
+|---|---|
+| Modelo | `Híbrido tabular 512 py XGB` |
+| Feature run | `fe_20260512_161646` |
+| Train run | `train_20260512_165340` |
+| `context_max_length` | `512` |
+| `macro_f1_dev` | `0.7233870967741935` |
+| `balanced_accuracy_dev` | `0.7170987654320987` |
+| `weighted_f1_dev` | `0.7748283645255337` |
+| `f1_ansiedad_dev` | `0.600000` |
+| `f1_depresion_dev` | `0.846774193548387` |
+
+### Híbrido tabular histórico
+| Campo | Valor |
+|---|---|
+| Modelo histórico | `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB` |
+| Lectura | referencia histórica/comparativa, no mejor modelo global vigente |
 
 ## Decisiones metodológicas que deberían mantenerse
 | Decisión | Valor canónico |
@@ -97,10 +122,11 @@ Estos valores deberían volver a salir si se ejecuta el pipeline sobre el mismo 
 | Baseline fuerte simple | `TF-IDF` |
 | Mejor transformer standalone | `ROBERTA_CLINICAL` |
 | Mejor backbone del híbrido | `BETO` |
-| Mejor híbrido final en `dev` | `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB` |
+| Mejor híbrido tabular 512 | `py XGB` |
+| Mejor modelo global en `dev` | ensamble weighted soft 512 |
 | `test` | reservado metodológicamente; auditoría formal `auditoria_test_*.md` pendiente |
-| XAI | SHAP mínimo en `dev` ejecutado; integración formal final pendiente |
-| Estado de fase | `CIERRE_DEV_REVALIDADO` |
+| XAI | fuera del cierre técnico actual; integración formal final pendiente |
+| Estado de fase | `CIERRE_DEV_ENSAMBLE_512_RECOMENDADO` |
 | `transformer` standalone y backbone del híbrido | `NO COINCIDEN` |
 | Freeze léxico preliminar | `freeze_lexico_20260401_114408` |
 | Split de decisión | `dev` |
@@ -108,9 +134,9 @@ Estos valores deberían volver a salir si se ejecuta el pipeline sobre el mismo 
 ## Lista corta que pasa a `test`
 Según el cierre vigente, la shortlist metodológica es:
 - `TF-IDF`
-- `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB`
-- `BETO`
 - `ROBERTA_CLINICAL`
+- ensamble weighted soft 512
+- híbrido tabular 512 `py XGB` como comparador clínico-tabular
 
 ## Qué puede variar sin invalidar la revalidación
 ### 1. Timestamps y nombres de carpetas

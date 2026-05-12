@@ -4,7 +4,7 @@ Esta guía cubre únicamente la regeneración hasta el cierre actual en `dev`.
 
 No incluye:
 - evaluación final en `test` (pendiente);
-- notebook final de xAI/explicabilidad (pendiente; SHAP mínimo en `dev` ya ejecutado como auditoría secundaria).
+- notebook final de xAI/explicabilidad (pendiente; fuera del cierre técnico actual).
 
 ## Opción reproducible por contenedor
 
@@ -157,6 +157,24 @@ Cada corrida deja:
 14. `manifiesto_artefactos_backbone`
 15. `09b_cierre_modelos_dev`
 16. `09_analisis_errores_hibrido`
+
+## Cierre dev vigente con ensamble 512
+El cierre recomendado actual se formaliza en:
+
+```bash
+CIERRE_DEV_ENSAMBLE_RUN_ID=cierre_dev_ensamble_512_20260512_155606 \
+jupyter nbconvert --to notebook --execute --inplace notebooks/pipeline/08_resultados_hibrido_vs_lineas_base.ipynb
+
+CIERRE_DEV_ENSAMBLE_RUN_ID=cierre_dev_ensamble_512_20260512_155606 \
+jupyter nbconvert --to notebook --execute --inplace notebooks/analysis/09_analisis_errores_hibrido.ipynb
+```
+
+Artefactos principales:
+- `data/outputs/cierre_dev_ensamble_512_20260512_155606/manifest.json`
+- `data/outputs/cierre_dev_ensamble_512_20260512_155606/reporte_cierre_dev_ensamble.md`
+- `data/outputs/cierre_dev_ensamble_512_20260512_155606/tabla_experimentos_dev_cierre.csv`
+
+Este cierre usa `max_length=512`. Las corridas `max_length=256` quedan como sensibilidad no adoptada.
 
 ## Control secundario posterior
 La auditoría secundaria pre-`test` se ejecuta después del cierre y del análisis de errores:

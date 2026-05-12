@@ -9,7 +9,10 @@
 - baseline fuerte simple: `TF-IDF`;
 - mejor transformer standalone actual: `ROBERTA_CLINICAL`;
 - mejor backbone contextual del híbrido actual: `BETO`;
-- mejor híbrido final actual en `dev`: `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB`;
+- mejor híbrido tabular alineado a 512: `py XGB`;
+- mejor modelo global actual en `dev`: ensamble weighted soft `ROBERTA_CLINICAL 512 + simbólico py RF + simbólico core RF late fusion LLM`;
+- cierre híbrido tabular previo: conservado como referencia histórica/comparativa;
+- `max_length=512` es la condición principal del cierre actual; `max_length=256` queda como sensibilidad no adoptada;
 - `mejor transformer standalone` y `mejor backbone del híbrido` no coinciden y no deben mezclarse conceptualmente.
 
 ## Convención léxica vigente
@@ -24,9 +27,9 @@
 
 ## Estado operativo
 - estado de `test`: reservado metodológicamente; auditoría formal `auditoria_test_*.md` pendiente;
-- estado de xAI: SHAP mínimo en `dev` ejecutado; integración formal final pendiente;
+- estado de xAI: fuera del cierre técnico actual; integración formal final pendiente;
 - frente formal de validación clínica: `ACTIVO`;
-- estado de la fase: `CASI_LISTO_PARA_FREEZE_OFICIAL_Y_TEST`.
+- estado de la fase: `CIERRE_DEV_ENSAMBLE_512_RECOMENDADO`.
 
 ## Validación secundaria incorporada en `dev`
 - la evaluación principal sigue siendo a nivel nota, pero se reportan lecturas secundarias `patient-weighted` y `patient-aggregated`;
@@ -42,7 +45,9 @@
 - la narrativa final debe evitar sobreafirmar al híbrido como mejor modelo absoluto, porque los mejores resultados agregados en `dev` siguen en líneas base textuales fuertes.
 
 ## Fuentes canónicas
-- cierre formal: `notebooks/pipeline/09b_cierre_modelos_dev.ipynb` o `scripts/cerrar_modelos_dev.py`
+- cierre formal vigente: `data/outputs/cierre_dev_ensamble_512_20260512_155606/manifest.json`
+- reporte de cierre vigente: `data/outputs/cierre_dev_ensamble_512_20260512_155606/reporte_cierre_dev_ensamble.md`
+- cierre histórico tabular: `notebooks/pipeline/09b_cierre_modelos_dev.ipynb` o `scripts/cerrar_modelos_dev.py`
 - comparación backbone válida: `data/outputs/comparacion_backbones_hibrido_latest.json`
 - selección transformer vigente: `data/outputs/transformer_baseline_selection_latest.json`
 - auditoría de `test`: `data/outputs/auditoria_test_*.md`

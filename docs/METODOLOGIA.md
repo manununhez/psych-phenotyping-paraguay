@@ -15,7 +15,25 @@ El proyecto implementa un pipeline reproducible para clasificar notas clínicas 
 - `ansiedad`
 - `depresion`
 
-La salida es probabilística. En esta fase no se modela una clase explícita de `comorbilidad`, no se ejecuta todavía la evaluación final en `test` y la explicabilidad final todavía requiere integración formal. Ya existe, sin embargo, una auditoría SHAP mínima sobre `dev` para el híbrido congelado.
+La salida es probabilística. En esta fase no se modela una clase explícita de `comorbilidad`, no se ejecuta todavía la evaluación final en `test` y la explicabilidad final queda fuera del cierre técnico actual.
+
+## Cierre dev vigente
+El cierre técnico vigente en `dev` es un ensamble por ramas con `max_length=512`:
+
+- rama contextual: `ROBERTA_CLINICAL` standalone, `hidden_size=768`, salida probabilística por clase;
+- rama simbólica regionalizada: `Concept_Core + Concept_PY` con `RandomForest`;
+- rama simbólica core con late fusion LLM: `RandomForest`;
+- combinación: weighted soft voting con pesos `0.80 / 0.10 / 0.10`.
+
+Resultado principal en `dev`:
+
+| Modelo | Macro F1 | Balanced accuracy | Weighted F1 | F1 ansiedad | F1 depresión |
+|---|---:|---:|---:|---:|---:|
+| Ensamble weighted soft 512 | `0.749250` | `0.770062` | `0.784909` | `0.663717` | `0.834783` |
+| `ROBERTA_CLINICAL` 512 | `0.741078` | `0.763889` | `0.776955` | `0.655022` | `0.827133` |
+| Híbrido tabular 512 `py XGB` | `0.723387` | `0.717099` | `0.774828` | `0.600000` | `0.846774` |
+
+El cierre híbrido tabular previo se conserva como referencia histórica/comparativa. La configuración `max_length=256` queda documentada como sensibilidad no adoptada.
 
 ## Invariantes metodológicos
 Estas decisiones se tratan como congeladas:
@@ -44,9 +62,9 @@ La lógica del experimento sigue esta cadena:
 8. comparación controlada de backbone del híbrido;
 9. barrido, ablación y estabilidad multi-seed;
 10. freeze léxico;
-11. cierre formal del mejor modelo en `dev`;
-12. análisis de errores del modelo congelado;
-13. auditoría secundaria pre-`test` en `dev` (`09c`).
+11. cierre formal del ensamble por ramas en `dev`;
+12. análisis de errores del modelo recomendado;
+13. auditoría secundaria pre-`test` en `dev` cuando corresponda (`09c`).
 
 ## Rol del LLM
 El LLM se usa de manera acotada para:
@@ -83,10 +101,10 @@ En la corrida vigente:
 - mejor transformer standalone: `ROBERTA_CLINICAL`
 - mejor backbone del híbrido: `BETO`
 
-Por eso `06` usa `BETO` por defecto para construir `ctx_<backbone>_*`. Si se quiere heredar explícitamente la selección de `04c`, debe indicarse `FE_TEXT_BACKBONE=auto`.
+Por eso `06` usa `BETO` por defecto para construir `ctx_<backbone>_*` en el híbrido tabular. El ensamble vigente, en cambio, usa `ROBERTA_CLINICAL` como rama contextual porque combina predicciones probabilísticas de ramas independientes. Si se quiere heredar explícitamente la selección de `04c` dentro de `06`, debe indicarse `FE_TEXT_BACKBONE=auto`.
 
-## Criterio de evaluación del híbrido
-La familia híbrida no se cierra por una sola métrica. El cierre en `dev` combina:
+## Criterio de evaluación del cierre dev
+El cierre en `dev` no se decide por una sola métrica. La decisión combina:
 
 - `macro_f1`;
 - `balanced_accuracy`;
@@ -98,18 +116,19 @@ La familia híbrida no se cierra por una sola métrica. El cierre en `dev` combi
 - consistencia entre backbone, barrido, freeze y análisis de errores.
 
 ## Estado actual de la fase
-El repositorio está cerrado metodológicamente en `dev`:
+El repositorio está cerrado metodológicamente en `dev` con ensamble por ramas:
 
 - selección y comparación de líneas base;
 - backbone del híbrido resuelto;
-- barrido y ablación ejecutados;
+- híbrido tabular reejecutado como comparativo 512;
+- ensamble por ramas formalizado;
 - freeze léxico generado;
-- modelo final congelado en `09b`;
-- auditoría secundaria `09c` ejecutada sobre `dev`, sin reabrir selección.
+- análisis de errores del ensamble ejecutado;
+- `test` sigue virgen.
 
 Quedan pendientes:
 - evaluación final en `test`;
-- integración final de xAI/explicabilidad y repetición de análisis secundarios cuando se abra `test`.
+- integración final de xAI/explicabilidad y repetición de análisis secundarios cuando se abra `test`, si la dirección metodológica lo aprueba.
 
 ## Validación secundaria en `dev`
 La lectura principal del proyecto sigue siendo el cierre metodológico en `dev`, pero la auditoría secundaria añade controles necesarios antes de abrir `test`:

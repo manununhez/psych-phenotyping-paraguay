@@ -7,14 +7,24 @@ Repositorio de investigación para clasificación probabilística de notas clín
 - En esta fase no existe clase explícita de `comorbilidad`.
 - La interpretación vigente del etiquetado es a nivel `texto/consulta`.
 - El grupo de control queda fuera del alcance actual y pasa a trabajo futuro.
-- Familia híbrida explorada: reglas clínicas + normalización semántica acotada con LLM + `embeddings` contextuales (`ctx_<backbone>_*`) + sentimiento + `RandomForest`/`XGBoost`.
-- Variante híbrida final congelada en `dev`: `llm0`, `sent0`, `tpl0`, `sin_feat_sin_medication`, con `BETO` como backbone contextual y `XGBoost` como clasificador tabular.
+- Familias modeladas: líneas base textuales, Transformers standalone, híbrido tabular y ensamble por ramas.
+- Cierre vigente en `dev`: ensamble weighted soft con `ROBERTA_CLINICAL max_length=512` + rama simbólica regionalizada `py RF` + rama simbólica core con late fusion LLM.
+- El cierre híbrido tabular previo queda conservado como referencia histórica/comparativa, no como mejor modelo global vigente.
+
+## Cierre dev vigente
+- Carpeta oficial local: `data/outputs/cierre_dev_ensamble_512_20260512_155606/`.
+- Mejor modelo global en `dev`: ensamble weighted soft `ROBERTA_CLINICAL 512 + simbólico py RF + simbólico core RF late fusion LLM`.
+- Métricas principales en `dev`: macro-F1 `0.749250`, balanced accuracy `0.770062`, weighted-F1 `0.784909`.
+- Mejor híbrido tabular alineado a 512: `py XGB`, macro-F1 `0.723387`.
+- `max_length=512` queda como configuración principal del cierre; `max_length=256` queda documentado como sensibilidad no adoptada.
+- `test` permanece reservado: `TEST_VIRGEN`.
 
 ## Selección de backbone contextual
 - `04c_linea_base_transformers.ipynb` define explícitamente la comparación de baselines Transformer en `dev` y exporta:
   - `data/outputs/transformer_baseline_selection_<timestamp>.json`
   - `data/outputs/transformer_baseline_selection_latest.json`
 - `06_ingenieria_features_hibridas.ipynb` usa `BETO` por defecto para el bloque contextual del híbrido, porque la comparación controlada de backbone vigente retuvo `BETO` dentro de la arquitectura híbrida.
+- El ensamble vigente usa `ROBERTA_CLINICAL` como rama contextual porque toma las probabilidades del mejor Transformer standalone en la condición de cierre `max_length=512`.
 - Si se quiere heredar explícitamente la selección standalone de `04c`, debe indicarse `FE_TEXT_BACKBONE=auto`.
 - `04c` y la comparación controlada de backbone responden a preguntas distintas:
   - `04c` decide el mejor transformer standalone;
@@ -27,11 +37,11 @@ Cadena de trazabilidad (sin saltos):
 - Selección y ablación cerradas en `dev`.
 - `test` reservado para evaluación final (no ejecutado en esta fase).
 - Freeze léxico preliminar generado.
-- Cierre formal de selección de modelo en `dev` generado.
+- Cierre formal de selección de modelo en `dev` actualizado al ensamble por ramas con `max_length=512`.
 - La revisión clínica externa queda como fase secundaria opcional, separada del cierre experimental principal.
 - Pendientes de fase final:
   - evaluación final en `test`;
-  - integración final de xAI/explicabilidad; ya existe SHAP mínimo en `dev`.
+  - integración final de xAI/explicabilidad, fuera de este cierre técnico.
 
 ## Dependencia clínica versionada
 - `Spanish_Psych_Phenotyping_PY/` es un submódulo versionado del proyecto.
@@ -131,6 +141,7 @@ La decisión formal del modelo final queda en `notebooks/pipeline/09b_cierre_mod
 ## Salidas clave
 - Features híbridas: `data/processed/fe_<run_id>_{core,py}/`.
 - Entrenamiento: `data/outputs/train_<run_id>/`.
+- Cierre dev vigente del ensamble: `data/outputs/cierre_dev_ensamble_512_20260512_155606/`.
 - Comparación controlada de backbones: `data/outputs/comparacion_backbones_hibrido_<timestamp>/`.
 - Manifiesto de artefactos de backbone: `data/outputs/backbone_artifacts_manifest_latest.json`.
 - Resultados comparativos: `data/outputs/results_<run_id>/`.
