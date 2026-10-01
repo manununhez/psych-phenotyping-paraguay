@@ -18,7 +18,6 @@ La salida es probabilística y el diseño busca equilibrar:
 ## Qué no hace el proyecto en su estado actual
 Este repositorio no resuelve todavía:
 
-- evaluación final en `test`;
 - una fase final de xAI o explicabilidad completa integrada al cierre posterior a `test`;
 - una formulación multiclase o multilabel;
 - una clase explícita de `comorbilidad`;
@@ -39,7 +38,8 @@ La estrategia del proyecto no consiste en aplicar un clasificador sobre texto cr
 10. cerrar formalmente la selección en `dev` con una rúbrica multicriterio;
 11. analizar errores del modelo congelado;
 12. auditar en `dev` robustez secundaria antes de abrir `test`;
-13. preparar, como fase secundaria, material para revisión clínica externa y xAI.
+13. ejecutar una única evaluación final predict-only en `test` con el ensamble congelado;
+14. preparar, como fase secundaria, material para revisión clínica externa y xAI.
 
 ## Restricciones metodológicas congeladas
 Estos elementos se tratan como invariantes del proyecto y no deben alterarse sin una decisión metodológica explícita:
@@ -77,7 +77,7 @@ Construye familias separadas de evidencia:
 - `ctx_<backbone>_*`: embeddings contextuales.
 
 ### 4. Capa de decisión experimental
-Compara líneas base, resuelve backbone, explora ablaciones, congela el mejor modelo en `dev` y deja una shortlist para `test`.
+Compara líneas base, resuelve backbone, explora ablaciones, congela el modelo en `dev` y ejecuta una sola evaluación final en `test` sin reajuste.
 
 ## Diferencia entre universos del corpus
 El repositorio trabaja con varios niveles del corpus, y esa distinción es crucial para entender las comparaciones.
@@ -102,8 +102,8 @@ Existe un contraste secundario `crudo vs filtrado`, pero su rol es metodológico
 ## Flujo oficial del proyecto
 El flujo oficial se divide en dos capas:
 
-- pipeline experimental principal: `01–09`;
-- módulos secundarios de auditoría, revisión clínica externa y xAI: `09c` y `10`.
+- pipeline experimental principal: `01–10`;
+- módulos secundarios de auditoría y revisión clínica externa: `09c` y `analysis/10`.
 
 ### Pipeline experimental principal
 1. `notebooks/pipeline/01_datos_eda_limpieza.ipynb`
@@ -122,10 +122,11 @@ El flujo oficial se divide en dos capas:
 14. `scripts/audit/registrar_artefactos_backbone.py`
 15. `notebooks/pipeline/09b_cierre_modelos_dev.ipynb`
 16. `notebooks/analysis/09_analisis_errores_hibrido.ipynb`
+17. `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb`
 
 ### Módulo secundario
-17. `notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb`
-18. `notebooks/analysis/10_validacion_clinica_ips.ipynb`
+18. `notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb`
+19. `notebooks/analysis/10_validacion_clinica_ips.ipynb`
 
 ## Qué resuelve cada etapa
 
@@ -422,7 +423,7 @@ No redefine resultados; ordena trazabilidad.
 Cierra formalmente la selección de modelos en `dev`.
 
 **Qué decide**
-Define el modelo final vigente del desarrollo y la shortlist que pasará a `test`.
+Define el cierre comparativo en `dev` y la shortlist que se congela antes de `test`.
 
 **Cómo lo hace**
 - consume artefactos de `08`;
@@ -442,11 +443,11 @@ Define el modelo final vigente del desarrollo y la shortlist que pasará a `test
 **Por qué es importante**
 La decisión final del proyecto no se apoya en una sola tabla ni en un solo decimal.
 
-**Decisión actual retenida**
-- mejor híbrido final en `dev`:
-  - `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB`
+**Referencia híbrida tabular retenida**
+- `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB`
+- se conserva como comparador histórico; el cierre global vigente es el ensamble por ramas 512 recongelado.
 
-**Shortlist actual para `test`**
+**Shortlist congelada antes de `test`**
 - `TF-IDF`
 - `ROBERTA_CLINICAL`
 - híbrido final `py|XGB`
@@ -466,6 +467,28 @@ No redefine la selección. Interpreta el comportamiento del modelo elegido.
 
 **Por qué es importante**
 Separa la interpretación clínica y documental de la fase de selección cuantitativa.
+
+### 10. `10_cierre_final_test_ensamble.ipynb`
+**Qué hace**
+Ejecuta inferencia final predict-only sobre `test` con el ensamble por ramas recongelado en `dev`.
+
+**Qué decide**
+No selecciona ni reajusta nada. Produce la única estimación hold-out final del proyecto.
+
+**Cómo lo hace**
+- reproduce la rama `ROBERTA_CLINICAL` 512 contra la referencia congelada en `dev`;
+- carga las ramas simbólicas regionalizada `py RF` y `core RF` con late fusion LLM;
+- valida alineación por `row_id` y etiquetas;
+- combina probabilidades con pesos fijos `0.65 / 0.15 / 0.20`;
+- exporta predicciones, métricas, matriz de confusión, bootstrap por paciente y manifiesto.
+
+**Resultado final**
+- `n_eval = 385`, `n_pacientes = 18`;
+- Macro-F1 `0.555807`;
+- balanced accuracy `0.553883`;
+- weighted F1 `0.671349`.
+
+El resultado no se usa para modificar modelos, pesos, reglas ni umbral.
 
 ### 09c. `09c_auditoria_validacion_secundaria_dev.ipynb`
 **Qué hace**
@@ -488,7 +511,7 @@ Ejecuta `scripts/audit/generar_auditoria_validacion_secundaria_dev.py`, que cons
 **Por qué es importante**
 Convierte los controles metodológicos de la auditoría final en artefactos reproducibles sin contaminar la selección principal ni usar `test`.
 
-### 10. `10_validacion_clinica_ips.ipynb`
+### Fase secundaria. `10_validacion_clinica_ips.ipynb`
 **Qué hace**
 Orquesta la revisión clínica externa y prepara material reutilizable para xAI.
 
@@ -586,7 +609,8 @@ Es la forma más rápida de responder: cuál es el estado vigente del proyecto s
 | Cierre | `09b` | cuál es el modelo final defendible en `dev` |
 | Interpretación | `09` | cómo se comporta el modelo final en términos de errores |
 | Auditoría secundaria | `09c` | qué controles de robustez se reportan antes de abrir `test` |
-| Revisión externa | `10` | cómo traducir el cierre en `dev` a material clínico y xAI |
+| Cierre final | `pipeline/10` | cuál es el rendimiento hold-out del ensamble congelado en `test` |
+| Revisión externa | `analysis/10` | cómo traducir el cierre a material clínico y xAI |
 
 ## Diferencia entre preguntas experimentales que no deben mezclarse
 Este punto fue uno de los ajustes metodológicos más importantes del desarrollo.
@@ -647,6 +671,7 @@ Estos materiales son útiles para explicación y defensa metodológica, pero no 
 - `error_analysis_<timestamp>/`
 - `freeze_lexico_<timestamp>/`
 - `auditoria_final_caseC_validacion_secundaria/`
+- `cierre_final_test_ensamble_512_20260606_1640/`
 - `reporte_estado_actual_latest.json`
 
 ## Estado experimental vigente
@@ -655,8 +680,9 @@ A la fecha de este documento, el estado metodológico vigente es:
 - mejor baseline simple: `TF-IDF`;
 - mejor transformer standalone: `ROBERTA_CLINICAL`;
 - mejor backbone del híbrido: `BETO`;
-- mejor híbrido final en `dev`: `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB`;
-- `test`: pendiente;
+- mejor híbrido tabular comparativo en `dev`: `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB`;
+- mejor modelo global en `dev`: ensamble weighted soft 512 recongelado con pesos `0.65 / 0.15 / 0.20`;
+- `test`: ejecutado una sola vez, Macro-F1 `0.555807` y balanced accuracy `0.553883`;
 - xAI: SHAP mínimo en `dev` ejecutado; integración final pendiente.
 
 ## Cómo reproducir el estado actual sin interpretar código
@@ -688,6 +714,7 @@ La lógica completa es:
 - explorar variantes por barrido y ablación;
 - cerrar formalmente la selección en `dev`;
 - interpretar errores del modelo congelado;
+- ejecutar una única evaluación final predict-only en `test`;
 - preparar revisión clínica externa y xAI como fase secundaria.
 
 Entender el proyecto correctamente implica respetar esa separación de preguntas. La arquitectura híbrida, el uso acotado del LLM, la elección de `BETO` por defecto en `06`, el barrido A/B/C, el freeze léxico y el cierre formal en `09b` no son detalles de implementación: son la estructura metodológica del experimento.

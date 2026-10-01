@@ -1,10 +1,11 @@
-# Guía de ejecución (fase de desarrollo)
+# Guía de ejecución
 
-Esta guía cubre únicamente la regeneración hasta el cierre actual en `dev`.
+Esta guía cubre la regeneración ordinaria hasta el cierre en `dev`. La evaluación final en `test` ya fue ejecutada una sola vez y no forma parte de una regeneración rutinaria.
 
 No incluye:
-- evaluación final en `test` (pendiente);
 - notebook final de xAI/explicabilidad (pendiente; fuera del cierre técnico actual).
+
+El procedimiento predict-only y el manifiesto del único cierre de `test` están documentados en `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb`. No debe reejecutarse para exploración ni selección.
 
 ## Opción reproducible por contenedor
 
@@ -158,8 +159,8 @@ Cada corrida deja:
 15. `09b_cierre_modelos_dev`
 16. `09_analisis_errores_hibrido`
 
-## Cierre dev vigente con ensamble 512
-El cierre recomendado actual se formaliza en:
+## Cierre dev histórico con ensamble 512
+El cierre de mayo queda preservado como histórico y puede regenerarse con:
 
 ```bash
 CIERRE_DEV_ENSAMBLE_RUN_ID=cierre_dev_ensamble_512_20260512_155606 \
@@ -174,7 +175,39 @@ Artefactos principales:
 - `data/outputs/cierre_dev_ensamble_512_20260512_155606/reporte_cierre_dev_ensamble.md`
 - `data/outputs/cierre_dev_ensamble_512_20260512_155606/tabla_experimentos_dev_cierre.csv`
 
-Este cierre usa `max_length=512`. Las corridas `max_length=256` quedan como sensibilidad no adoptada.
+Este cierre usa `max_length=512`, pero queda como histórico porque luego se recongeló `ROBERTA_CLINICAL 512` con checkpoint reproducible.
+
+## Cierre dev recongelado y cierre final test
+
+El cierre vigente se apoya en:
+
+- cierre `dev` recongelado:
+  - `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/`;
+- dry-run dev del notebook final:
+  - `data/outputs/cierre_final_pretest_dev_reprocheck_refreeze_20260606_1620/`;
+- cierre final en `test`:
+  - `data/outputs/cierre_final_test_ensamble_512_20260606_1640/`.
+
+Para validar en `dev` sin abrir `test`:
+
+```bash
+CIERRE_FINAL_RUN_ID=cierre_final_pretest_dev_reprocheck_refreeze_20260606_1620 \
+FINAL_EVAL_SPLIT=dev \
+FINAL_BOOTSTRAP_N=0 \
+jupyter nbconvert --to notebook --execute --inplace notebooks/pipeline/10_cierre_final_test_ensamble.ipynb
+```
+
+La apertura final de `test` ya fue realizada una vez con:
+
+```bash
+CIERRE_FINAL_RUN_ID=cierre_final_test_ensamble_512_20260606_1640 \
+FINAL_EVAL_SPLIT=test \
+FINAL_PERMITIR_TEST=1 \
+FINAL_DEV_REPRO_OK=1 \
+jupyter nbconvert --to notebook --execute --inplace notebooks/pipeline/10_cierre_final_test_ensamble.ipynb
+```
+
+No repetir esta ejecución para reajustar modelos, pesos ni reglas. Las corridas `max_length=256` quedan como sensibilidad no adoptada.
 
 ## Control secundario posterior
 La auditoría secundaria pre-`test` se ejecuta después del cierre y del análisis de errores:

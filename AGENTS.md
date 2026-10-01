@@ -48,10 +48,11 @@ Orden oficial del experimento:
 11. `notebooks/pipeline/08_resultados_hibrido_vs_lineas_base.ipynb`
 12. `notebooks/pipeline/09b_cierre_modelos_dev.ipynb`
 13. `notebooks/analysis/09_analisis_errores_hibrido.ipynb`
+14. `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb`
 
 Fase secundaria opcional:
 
-14. `notebooks/analysis/10_validacion_clinica_ips.ipynb`
+15. `notebooks/analysis/10_validacion_clinica_ips.ipynb`
 
 ## Contrato entre etapas
 - `03` define el universo final modelado y produce `data/input_for_gemini.json`.
@@ -59,8 +60,9 @@ Fase secundaria opcional:
 - `06` construye `feat_*`, `feat_niega_*`, `rule_medication_*`, `sent_*` y `ctx_<backbone>_*`.
 - `07` consume únicamente la salida final de `06`.
 - `08` consolida líneas base y modelos híbridos.
-- `09b` congela la decisión formal en `dev`.
-- `09` analiza errores del modelo final congelado.
+- `09b` conserva el cierre multicriterio y la shortlist histórica en `dev`.
+- `09` conserva el análisis de errores asociado al cierre histórico en `dev`.
+- `10_cierre_final_test_ensamble` valida el recongelado reproducible del ensamble en `dev` y ejecuta inferencia final `predict-only` sobre `test` con la configuración ya cerrada; no reentrena ni reajusta.
 - `scripts/comparar_backbones_hibrido.py` resuelve la comparación controlada de backbone del híbrido.
 
 ## Backbone contextual

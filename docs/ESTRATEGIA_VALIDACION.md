@@ -7,7 +7,7 @@ La fase clínica no existe para "corregir" retrospectivamente el benchmark en `d
 
 - el rendimiento depende del universo de notas realmente modelado y no solo del clasificador;
 - en una tarea diferencial entre ansiedad y depresión, parte del desacuerdo modelo-etiqueta puede reflejar baja separabilidad clínica de la consulta y no solo un error algorítmico;
-- antes de abrir `test`, conviene contrastar con juicio experto supuestos sobre señal clínica útil, negación, notas poco diagnósticas y posibles límites del etiquetado actual.
+- la evaluación final en `test` ya se realizó; la revisión experta de señal clínica útil, negación, notas poco diagnósticas y posibles límites del etiquetado sirve ahora para interpretar los resultados, sin reajustar modelos ni reglas con `test`.
 
 Se priorizan tres focos de revisión:
 1. decisiones de denoising (qué se excluye y qué se conserva),
@@ -41,4 +41,4 @@ La validación clínica externa no debe usarse para:
 - cambiar la shortlist principal en función de impresiones aisladas;
 - sustituir la comparación cuantitativa por anécdotas clínicas.
 
-Su papel correcto es cerrar mejor la interpretación metodológica del sistema antes de `test`, no convertir la fase clínica en una nueva etapa de modelado.
+Su papel correcto es profundizar la interpretación metodológica del sistema tras el cierre en `test`, no convertir la fase clínica en una nueva etapa de modelado.

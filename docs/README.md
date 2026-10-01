@@ -27,15 +27,17 @@ Esta carpeta concentra la documentación pública y versionada del proyecto. La 
 - Allí se preserva material interno, histórico o circunstancial que no aporta reproducibilidad directa al repositorio público.
 
 ## Notas de alcance
-- La fase final de evaluación en `test` todavía no está integrada como notebook operativo en esta etapa.
-- La fase final de xAI/explicabilidad queda pendiente para integración posterior y no forma parte del cierre técnico actual.
+- La fase final de evaluación en `test` ya está integrada en `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb` y fue ejecutada una sola vez.
+- La fase final de xAI/explicabilidad queda pendiente para integración posterior y se interpreta como análisis pos-hoc, no como reajuste del modelo.
 - Los artefactos de `data/outputs/` no forman parte del repositorio público; son salidas locales regenerables.
 - La síntesis pública estable debe quedar reflejada solo en estos `.md`.
 - Cuando existan artefactos locales relevantes, usar punteros `latest` antes que carpetas con timestamp fijo.
 - La revisión clínica externa se documenta aquí como parte del método, no como bitácora operativa.
 
-## Cierre dev vigente
-- Modelo recomendado en `dev`: ensamble weighted soft con `ROBERTA_CLINICAL max_length=512` + ramas simbólicas `RF`.
-- Carpeta local de cierre: `data/outputs/cierre_dev_ensamble_512_20260512_155606/`.
+## Cierre vigente
+- Modelo seleccionado en `dev`: ensamble weighted soft recongelado con `ROBERTA_CLINICAL max_length=512` + ramas simbólicas `RF`.
+- Pesos vigentes: `0.65 / 0.15 / 0.20`.
+- Carpeta local de cierre `dev`: `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/`.
+- Carpeta local de cierre `test`: `data/outputs/cierre_final_test_ensamble_512_20260606_1640/`.
 - `max_length=512` es la configuración principal; `256` queda como sensibilidad no adoptada.
-- `test` permanece virgen.
+- `test` fue ejecutado una sola vez como hold-out final.

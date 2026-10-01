@@ -15,25 +15,44 @@ El proyecto implementa un pipeline reproducible para clasificar notas clínicas 
 - `ansiedad`
 - `depresion`
 
-La salida es probabilística. En esta fase no se modela una clase explícita de `comorbilidad`, no se ejecuta todavía la evaluación final en `test` y la explicabilidad final queda fuera del cierre técnico actual.
+La salida es probabilística. En esta fase no se modela una clase explícita de `comorbilidad`. La evaluación final en `test` ya fue ejecutada una sola vez con el cierre `dev` recongelado; la explicabilidad final sigue pendiente como análisis pos-hoc.
 
 ## Cierre dev vigente
-El cierre técnico vigente en `dev` es un ensamble por ramas con `max_length=512`:
+El cierre técnico vigente en `dev`, tras el recongelado reproducible del 2026-06-06, es un ensamble por ramas con `max_length=512`:
 
 - rama contextual: `ROBERTA_CLINICAL` standalone, `hidden_size=768`, salida probabilística por clase;
 - rama simbólica regionalizada: `Concept_Core + Concept_PY` con `RandomForest`;
 - rama simbólica core con late fusion LLM: `RandomForest`;
-- combinación: weighted soft voting con pesos `0.80 / 0.10 / 0.10`.
+- combinación: weighted soft voting con pesos `0.65 / 0.15 / 0.20`.
+
+La corrida anterior de mayo con pesos `0.80 / 0.10 / 0.10` queda preservada como cierre histórico en `dev`, pero no es la configuración reproducible vigente para avanzar a `test`, porque no se encontró el checkpoint exacto de `ROBERTA_CLINICAL 512` que la reproduzca.
 
 Resultado principal en `dev`:
 
 | Modelo | Macro F1 | Balanced accuracy | Weighted F1 | F1 ansiedad | F1 depresión |
 |---|---:|---:|---:|---:|---:|
-| Ensamble weighted soft 512 | `0.749250` | `0.770062` | `0.784909` | `0.663717` | `0.834783` |
-| `ROBERTA_CLINICAL` 512 | `0.741078` | `0.763889` | `0.776955` | `0.655022` | `0.827133` |
+| Ensamble weighted soft 512 recongelado | `0.757017` | `0.765638` | `0.796002` | `0.663507` | `0.850526` |
+| `ROBERTA_CLINICAL` 512 recongelado | `0.747232` | `0.760350` | `0.785943` | `0.654378` | `0.840085` |
 | Híbrido tabular 512 `py XGB` | `0.723387` | `0.717099` | `0.774828` | `0.600000` | `0.846774` |
 
 El cierre híbrido tabular previo se conserva como referencia histórica/comparativa. La configuración `max_length=256` queda documentada como sensibilidad no adoptada.
+
+## Resultado final en test
+
+El conjunto `test` se abrió una sola vez con la configuración congelada en `dev`, sin reentrenar, sin modificar pesos y sin modificar reglas clínicas.
+
+| Modelo | n_eval | pacientes | Macro F1 | Balanced accuracy | Weighted F1 | F1 ansiedad | F1 depresión |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Ensamble weighted soft 512 recongelado | `385` | `18` | `0.555807` | `0.553883` | `0.671349` | `0.320442` | `0.791171` |
+
+Matriz de confusión:
+
+|                | pred_ansiedad | pred_depresion |
+|---|---:|---:|
+| true_ansiedad  | `29` | `69` |
+| true_depresion | `54` | `233` |
+
+Lectura: el rendimiento final cae frente a `dev`, principalmente por baja recuperación de ansiedad. Este resultado no se usa para reajustar el modelo; queda como evaluación hold-out final.
 
 ## Invariantes metodológicos
 Estas decisiones se tratan como congeladas:
@@ -65,6 +84,7 @@ La lógica del experimento sigue esta cadena:
 11. cierre formal del ensamble por ramas en `dev`;
 12. análisis de errores del modelo recomendado;
 13. auditoría secundaria pre-`test` en `dev` cuando corresponda (`09c`).
+14. evaluación final predict-only del ensamble congelado en `test` (`10`).
 
 ## Rol del LLM
 El LLM se usa de manera acotada para:
@@ -116,7 +136,7 @@ El cierre en `dev` no se decide por una sola métrica. La decisión combina:
 - consistencia entre backbone, barrido, freeze y análisis de errores.
 
 ## Estado actual de la fase
-El repositorio está cerrado metodológicamente en `dev` con ensamble por ramas:
+El repositorio completó el cierre metodológico en `dev` y la evaluación final única en `test` con el ensamble por ramas:
 
 - selección y comparación de líneas base;
 - backbone del híbrido resuelto;
@@ -124,14 +144,12 @@ El repositorio está cerrado metodológicamente en `dev` con ensamble por ramas:
 - ensamble por ramas formalizado;
 - freeze léxico generado;
 - análisis de errores del ensamble ejecutado;
-- `test` sigue virgen.
+- `test` ejecutado una sola vez mediante `10_cierre_final_test_ensamble.ipynb`.
 
-Quedan pendientes:
-- evaluación final en `test`;
-- integración final de xAI/explicabilidad y repetición de análisis secundarios cuando se abra `test`, si la dirección metodológica lo aprueba.
+Queda pendiente la integración final de xAI/explicabilidad como análisis pos-hoc. El resultado de `test` permanece congelado y no habilita reajustes de modelos, pesos, reglas ni umbral.
 
 ## Validación secundaria en `dev`
-La lectura principal del proyecto sigue siendo el cierre metodológico en `dev`, pero la auditoría secundaria añade controles necesarios antes de abrir `test`:
+Antes de abrir `test`, la auditoría secundaria añadió controles de robustez sobre los artefactos congelados en `dev`:
 
 | Modelo | Macro F1 note-level | Macro F1 patient-weighted | Macro F1 patient-aggregated | AP ansiedad |
 |---|---:|---:|---:|---:|

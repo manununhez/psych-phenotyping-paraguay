@@ -7,16 +7,42 @@ Su objetivo es servir como hoja de control para una revalidación técnica del p
 
 ## Fuentes canónicas usadas
 - `data/outputs/transformer_baseline_selection_latest.json`
-- `data/outputs/cierre_dev_ensamble_512_20260512_155606/manifest.json`
-- `data/outputs/cierre_dev_ensamble_512_20260512_155606/tabla_experimentos_dev_cierre.csv`
+- `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/manifest.json`
+- `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/metricas_comparativas_dev.csv`
+- `data/outputs/cierre_final_test_ensamble_512_20260606_1640/manifest.json`
+- `data/outputs/cierre_final_test_ensamble_512_20260606_1640/metricas_test.csv`
+- `data/outputs/cierre_dev_ensamble_512_20260512_155606/manifest.json` como cierre histórico de mayo
 - `data/outputs/comparacion_backbones_hibrido_latest.json`
 - `data/outputs/cierre_modelos_dev_20260401_114409/decision_modelo_final.json`
 - `data/outputs/results_20260401_112536/tabla_comparativa_modelos.csv`
 
 ## Actualización de cierre dev
-El cierre de referencia vigente queda actualizado al ensamble por ramas con `max_length=512`.
+El cierre de referencia vigente queda actualizado al ensamble por ramas recongelado con `max_length=512`.
 
-La configuración anterior basada en híbrido tabular se conserva como referencia histórica/comparativa. No debe borrarse ni sobrescribirse, pero ya no representa el mejor modelo global en `dev`.
+La configuración anterior basada en híbrido tabular y el cierre por ensamble de mayo se conservan como referencias históricas/comparativas. No deben borrarse ni sobrescribirse, pero ya no representan la configuración reproducible vigente para abrir `test`.
+
+## Resultado final en test
+
+| Campo | Valor |
+|---|---|
+| Run | `data/outputs/cierre_final_test_ensamble_512_20260606_1640/` |
+| Estado | `TEST_EJECUTADO_UNA_VEZ` |
+| `n_eval` | `385` |
+| Pacientes | `18` |
+| `macro_f1_test` | `0.5558067330150362` |
+| `balanced_accuracy_test` | `0.5538825286212046` |
+| `weighted_f1_test` | `0.6713494255559185` |
+| `f1_ansiedad_test` | `0.32044198895027626` |
+| `f1_depresion_test` | `0.7911714770797963` |
+
+Matriz de confusión:
+
+|                | pred_ansiedad | pred_depresion |
+|---|---:|---:|
+| true_ansiedad  | `29` | `69` |
+| true_depresion | `54` | `233` |
+
+Lectura de revalidación: el cierre dev recongelado no generaliza al `test` con la misma fuerza observada en `dev`; la principal pérdida está en ansiedad. Estos valores son referencia final hold-out y no deben usarse para reajustar modelos.
 
 ## Advertencia importante antes de limpiar `data/`
 Si se conserva **solo** `data/ips_raw.csv`, puede regenerarse el flujo activo del pipeline, pero hay dos matices que conviene fijar desde el inicio.
@@ -84,18 +110,28 @@ Estos valores deberían volver a salir si se ejecuta el pipeline sobre el mismo 
 | `beto` | `BETO` | `0.7288943006066821` | `0.7212139917695473` | `0.6063829787234043` | `0.8514056224899599` | `861` |
 | `roberta_clinical` | `ROBERTA_CLINICAL` | `0.7243149400405088` | `0.7162139917695474` | `0.5989304812834224` | `0.8496993987975952` | `861` |
 
-### Híbrido final cerrado en `dev`
+### Cierre dev vigente recongelado
 | Campo | Valor |
 |---|---|
-| Modelo final vigente | Ensamble weighted soft `ROBERTA_CLINICAL 512 + simbólico py RF + simbólico core RF late fusion LLM` |
+| Modelo final vigente | Ensamble weighted soft recongelado `ROBERTA_CLINICAL 512 + simbólico py RF + simbólico core RF late fusion LLM` |
+| Pesos | `0.65 / 0.15 / 0.20` |
 | Split | `dev` |
 | `n_eval` | `343` |
+| `macro_f1_dev` | `0.7570167123971066` |
+| `balanced_accuracy_dev` | `0.7656378600823045` |
+| `weighted_f1_dev` | `0.7960017657064606` |
+| `f1_ansiedad_dev` | `0.6635071090047393` |
+| `f1_depresion_dev` | `0.8505263157894737` |
+| Estado | `cierre dev recongelado reproducible; test ejecutado aparte una sola vez` |
+
+### Cierre dev anterior preservado como histórico
+| Campo | Valor |
+|---|---|
+| Modelo histórico | Ensamble weighted soft `ROBERTA_CLINICAL 512 + simbólico py RF + simbólico core RF late fusion LLM` |
+| Pesos | `0.80 / 0.10 / 0.10` |
 | `macro_f1_dev` | `0.7492497114274721` |
 | `balanced_accuracy_dev` | `0.7700617283950617` |
-| `weighted_f1_dev` | `0.7849091992098328` |
-| `f1_ansiedad_dev` | `0.663716814159292` |
-| `f1_depresion_dev` | `0.8347826086956521` |
-| Estado | `nuevo cierre dev recomendado; TEST_VIRGEN` |
+| Motivo de cambio | no se encontró el checkpoint exacto de `ROBERTA_CLINICAL 512`; se recongeló una versión reproducible antes de abrir `test` |
 
 ### Mejor híbrido tabular alineado a 512
 | Campo | Valor |
@@ -124,15 +160,15 @@ Estos valores deberían volver a salir si se ejecuta el pipeline sobre el mismo 
 | Mejor backbone del híbrido | `BETO` |
 | Mejor híbrido tabular 512 | `py XGB` |
 | Mejor modelo global en `dev` | ensamble weighted soft 512 |
-| `test` | reservado metodológicamente; auditoría formal `auditoria_test_*.md` pendiente |
+| `test` | ejecutado una sola vez con el ensamble 512 congelado; Macro-F1 `0.555807` |
 | XAI | fuera del cierre técnico actual; integración formal final pendiente |
-| Estado de fase | `CIERRE_DEV_ENSAMBLE_512_RECOMENDADO` |
+| Estado de fase | `CIERRE_FINAL_TEST_EJECUTADO` |
 | `transformer` standalone y backbone del híbrido | `NO COINCIDEN` |
 | Freeze léxico preliminar | `freeze_lexico_20260401_114408` |
 | Split de decisión | `dev` |
 
-## Lista corta que pasa a `test`
-Según el cierre vigente, la shortlist metodológica es:
+## Lista corta congelada antes de `test`
+La shortlist preespecificada antes de la evaluación final fue:
 - `TF-IDF`
 - `ROBERTA_CLINICAL`
 - ensamble weighted soft 512

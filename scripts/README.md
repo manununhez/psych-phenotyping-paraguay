@@ -37,7 +37,7 @@ Variables útiles:
 - `HOST_DATA_DIR` para redirigir el montaje de `data/` en modo `snapshot`.
 
 ## Alcance
-La superficie pública de scripts se centra en el flujo experimental principal `01–09`:
+La implementación metodológica principal es notebook-first y llega hasta el cierre final `01–10`. La superficie pública de scripts aporta únicamente soporte reutilizable para:
 - regeneración del pipeline;
 - extracción semántica acotada con LLM;
 - auditoría léxica;
@@ -45,6 +45,8 @@ La superficie pública de scripts se centra en el flujo experimental principal `
 - barrido y ablación del híbrido;
 - freeze léxico;
 - cierre formal en `dev`.
+
+El cierre final predict-only de `test` está autocontenido en `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb`. No depende de scripts de reporte ni de utilidades exploratorias no versionadas.
 
 Además, el repositorio expone un módulo secundario de revisión clínica externa sobre artefactos ya cerrados en `dev`.
 
@@ -207,9 +209,10 @@ python scripts/audit/generar_auditoria_validacion_secundaria_dev.py
 
 ## Reporte de estado actual
 - Script: `scripts/reportes/generar_reporte_estado_actual.py`.
+- Es el único generador consolidado de reportes del estado experimental; los diagnósticos exploratorios deben vivir en el notebook de la etapa correspondiente o permanecer como material interno.
 - Rol:
   - detectar artefactos vigentes y consistentes;
-  - resumir dataset, baselines, backbone, freeze, cierre y error analysis;
+  - resumir dataset, baselines, backbone, freeze, cierre en `dev`, cierre final en `test` y error analysis;
   - producir un snapshot legible del estado metodológico actual.
 - Salidas:
   - `data/outputs/reporte_estado_actual_<timestamp>/`

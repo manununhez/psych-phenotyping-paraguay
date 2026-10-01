@@ -16,6 +16,7 @@ Este directorio contiene solo notebooks activos para reproducibilidad.
 11. `pipeline/09b_cierre_modelos_dev.ipynb`
 12. `analysis/09_analisis_errores_hibrido.ipynb`
 13. `analysis/09c_auditoria_validacion_secundaria_dev.ipynb`
+14. `pipeline/10_cierre_final_test_ensamble.ipynb`
 
 ## Fase clínica secundaria
 1. `analysis/10_validacion_clinica_ips.ipynb`
@@ -29,8 +30,8 @@ Esta fase consume artefactos ya cerrados en `dev`; no redefine la shortlist ni l
 4. `analysis/10_validacion_clinica_ips.ipynb`
 
 ## Alcance de esta fase
-- Este flujo llega hasta cierre en `dev`.
-- No incluye todavía notebook final de `test`.
+- Este flujo llega hasta cierre en `dev` y evaluación final única en `test`.
+- El notebook final de `test` es `pipeline/10_cierre_final_test_ensamble.ipynb`.
 - Incluye auditoría secundaria en `dev` con SHAP mínimo; no incluye todavía xAI final posterior a `test`.
 
 ## Apéndice (solo soporte)
@@ -54,6 +55,7 @@ Cada notebook operativo declara al inicio:
 - 09b: `data/outputs/cierre_modelos_dev_<timestamp>/` con ranking, decisión y lista corta para `test`. Si no existe un barrido compatible con la corrida base actual, `09b` puede preparar automáticamente el barrido y regenerar el freeze léxico antes del cierre.
 - 09 análisis: `data/outputs/error_analysis_<run_id>/` con resumen de errores y casos.
 - 09c auditoría secundaria: `data/outputs/auditoria_final_caseC_validacion_secundaria/` con Caso C, métricas por paciente, AP/PR-AUC, sensibilidad `sample_weight`, demografía descriptiva y SHAP por familias.
+- 10 cierre final test: `data/outputs/cierre_final_test_ensamble_512_20260606_1640/` con métricas, matriz de confusión, predicciones por rama, errores, resumen por paciente y bootstrap agrupado por paciente.
 - 10 validación IPS: `data/outputs/material_validacion_ips_<timestamp>/` con preprocesamiento, balance, patrones por clase, comparación entre modelos, errores curados y preguntas para revisión clínica externa.
 - Curación posterior al 10: `scripts/export/curar_dossier_ips.py` genera `data/outputs/dossier_ips_curado_<timestamp>/` como dossier reusable para revisión clínica externa y xAI.
 - `analysis/10_validacion_clinica_ips.ipynb` funciona como capa legible y reutiliza scripts backend para generación reproducible de artefactos clínicos (`generar_material_validacion_ips.py`, `curar_dossier_ips.py`, `cerrar_fase_ips.py`).

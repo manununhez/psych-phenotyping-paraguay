@@ -22,6 +22,6 @@ Noveno, el corpus crudo contiene variables como sexo y fecha de nacimiento, pero
 
 Décimo, la ausencia de grupo de control es una delimitación metodológica real. El trabajo actual resuelve diagnóstico diferencial entre dos clases clínicas dentro de una población ya psiquiátrica; no resuelve una tarea de screening general caso/no caso.
 
-Undécimo, la explicabilidad no debe plantearse como interpretación clínica de cada dimensión latente de los embeddings. La estrategia compatible con el modelo final consiste en aplicar SHAP sobre el clasificador tabular XGB y leer las contribuciones por familias de variables, separando `ctx_beto_*` de `rule_*`. La auditoría actual muestra que el peso predictivo global del modelo final en `dev` está dominado por el bloque contextual, mientras que las reglas clínicas aportan menos globalmente aunque conservan valor para trazabilidad local y análisis de casos.
+Undécimo, la explicabilidad del ensamble final sigue pendiente. Las atribuciones del híbrido tabular XGBoost corresponden a un comparador, no al modelo final. Para el ensamble se requiere analizar por separado la rama contextual y las dos ramas clínico-léxicas, además de su combinación ponderada; ninguna atribución computacional debe interpretarse como relevancia clínica causal.
 
 Estas limitaciones no invalidan el enfoque; delimitan su alcance y orientan el trabajo futuro hacia validación externa y auditoría léxica continua.

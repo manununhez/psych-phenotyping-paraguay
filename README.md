@@ -8,16 +8,19 @@ Repositorio de investigación para clasificación probabilística de notas clín
 - La interpretación vigente del etiquetado es a nivel `texto/consulta`.
 - El grupo de control queda fuera del alcance actual y pasa a trabajo futuro.
 - Familias modeladas: líneas base textuales, Transformers standalone, híbrido tabular y ensamble por ramas.
-- Cierre vigente en `dev`: ensamble weighted soft con `ROBERTA_CLINICAL max_length=512` + rama simbólica regionalizada `py RF` + rama simbólica core con late fusion LLM.
+- Cierre vigente: ensamble weighted soft recongelado con `ROBERTA_CLINICAL max_length=512` + rama simbólica regionalizada `py RF` + rama simbólica core con late fusion LLM.
 - El cierre híbrido tabular previo queda conservado como referencia histórica/comparativa, no como mejor modelo global vigente.
 
-## Cierre dev vigente
-- Carpeta oficial local: `data/outputs/cierre_dev_ensamble_512_20260512_155606/`.
-- Mejor modelo global en `dev`: ensamble weighted soft `ROBERTA_CLINICAL 512 + simbólico py RF + simbólico core RF late fusion LLM`.
-- Métricas principales en `dev`: macro-F1 `0.749250`, balanced accuracy `0.770062`, weighted-F1 `0.784909`.
+## Cierre vigente
+- Cierre `dev` reproducible: `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/`.
+- Cierre final en `test`: `data/outputs/cierre_final_test_ensamble_512_20260606_1640/`.
+- Modelo seleccionado en `dev`: ensamble weighted soft recongelado `ROBERTA_CLINICAL 512 + simbólico py RF + simbólico core RF late fusion LLM`. En `test`, TF-IDF + LinearSVC obtuvo el mayor Macro-F1 puntual entre los comparadores evaluados.
+- Pesos vigentes: `0.65 / 0.15 / 0.20`.
+- Métricas principales en `dev`: macro-F1 `0.757017`, balanced accuracy `0.765638`, weighted-F1 `0.796002`.
+- Métricas finales en `test`: macro-F1 `0.555807`, balanced accuracy `0.553883`, weighted-F1 `0.671349`.
 - Mejor híbrido tabular alineado a 512: `py XGB`, macro-F1 `0.723387`.
 - `max_length=512` queda como configuración principal del cierre; `max_length=256` queda documentado como sensibilidad no adoptada.
-- `test` permanece reservado: `TEST_VIRGEN`.
+- `test` fue ejecutado una sola vez como hold-out final; no debe usarse para reajustar pesos, modelos ni reglas.
 
 ## Selección de backbone contextual
 - `04c_linea_base_transformers.ipynb` define explícitamente la comparación de baselines Transformer en `dev` y exporta:
@@ -35,13 +38,11 @@ Cadena de trazabilidad (sin saltos):
 
 ## Estado metodológico actual
 - Selección y ablación cerradas en `dev`.
-- `test` reservado para evaluación final (no ejecutado en esta fase).
+- `test` ejecutado una sola vez como evaluación hold-out final mediante el notebook `10`.
 - Freeze léxico preliminar generado.
 - Cierre formal de selección de modelo en `dev` actualizado al ensamble por ramas con `max_length=512`.
 - La revisión clínica externa queda como fase secundaria opcional, separada del cierre experimental principal.
-- Pendientes de fase final:
-  - evaluación final en `test`;
-  - integración final de xAI/explicabilidad, fuera de este cierre técnico.
+- Queda pendiente la integración final de xAI/explicabilidad como análisis pos-hoc, fuera del cierre técnico.
 
 ## Dependencia clínica versionada
 - `Spanish_Psych_Phenotyping_PY/` es un submódulo versionado del proyecto.
@@ -88,6 +89,7 @@ Cadena de trazabilidad (sin saltos):
 12. `notebooks/pipeline/09b_cierre_modelos_dev.ipynb`
 13. `notebooks/analysis/09_analisis_errores_hibrido.ipynb`
 14. `notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb`
+15. `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb`
 
 ## Auditoría secundaria pre-`test`
 - `notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb`
@@ -104,8 +106,8 @@ Cadena de trazabilidad (sin saltos):
 
 ## Diferencia entre `dev` y `test`
 - `dev`: comparación de líneas base, barridos, ablaciones y selección del modelo final.
-- `test`: evaluación final única de la lista corta congelada.
-- En el estado actual del repositorio, la fase `test` y la fase final de xAI todavía no están integradas al flujo automático; la auditoría SHAP mínima en `dev` queda como validación secundaria.
+- `test`: evaluación final única de la configuración congelada.
+- En el estado actual del repositorio, `test` ya fue ejecutado una sola vez mediante `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb`; la fase final de xAI sigue pendiente.
 
 ## Reproducción limpia del desarrollo (hasta estado actual)
 Script principal:
@@ -128,8 +130,8 @@ Ruta por contenedor:
 
 El contenedor congela dependencias y utilidades del entorno. Los datos reales siguen montándose localmente y no se empaquetan en la imagen.
 
-Con esto se reproduce el flujo de desarrollo y los artefactos de cierre en `dev`, sin ejecutar `test`.
-La decisión formal del modelo final queda en `notebooks/pipeline/09b_cierre_modelos_dev.ipynb` y también es invocable por `scripts/cerrar_modelos_dev.py`.
+Con esto se reproduce el flujo de desarrollo y los artefactos de cierre en `dev`. La evaluación final en `test` se ejecuta separadamente con `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb`, sin reentrenar ni reajustar.
+La decisión formal histórica en `dev` queda en `09b`/`08`; el cierre final sobre `test` queda en `10_cierre_final_test_ensamble.ipynb`.
 
 ## Reporte general del estado actual
 - Script: `python scripts/reportes/generar_reporte_estado_actual.py --verbose`
@@ -141,7 +143,9 @@ La decisión formal del modelo final queda en `notebooks/pipeline/09b_cierre_mod
 ## Salidas clave
 - Features híbridas: `data/processed/fe_<run_id>_{core,py}/`.
 - Entrenamiento: `data/outputs/train_<run_id>/`.
-- Cierre dev vigente del ensamble: `data/outputs/cierre_dev_ensamble_512_20260512_155606/`.
+- Cierre dev reproducible del ensamble: `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/`.
+- Cierre final en test: `data/outputs/cierre_final_test_ensamble_512_20260606_1640/`.
+- Cierre dev de mayo preservado como histórico: `data/outputs/cierre_dev_ensamble_512_20260512_155606/`.
 - Comparación controlada de backbones: `data/outputs/comparacion_backbones_hibrido_<timestamp>/`.
 - Manifiesto de artefactos de backbone: `data/outputs/backbone_artifacts_manifest_latest.json`.
 - Resultados comparativos: `data/outputs/results_<run_id>/`.

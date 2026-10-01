@@ -30,6 +30,8 @@ scripts/audit/_tmp_freeze_repo/
 scripts/freeze_report.json
 scripts/*FREEZE*.zip
 scripts.zip
+scripts/reportes/legacy/
+reports/
 
 # ============================================================
 # ENTORNOS Y DEPENDENCIAS
@@ -61,6 +63,7 @@ notebooks/runs/
 outputs/
 runs/
 docs/legacy/
+reports/eda_audit_20260619/private/
 
 # ============================================================
 # MODELOS Y BINARIOS
@@ -106,3 +109,5 @@ htmlcov/
 *.temp
 *.swp
 *.swo
+
+.tmp.driveupload

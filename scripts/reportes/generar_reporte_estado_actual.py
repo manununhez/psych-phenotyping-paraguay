@@ -389,6 +389,91 @@ def _resolver_auditoria_test(outputs_dir: Path, warnings: list[str]) -> Resolver
     )
 
 
+def _resolver_cierre_final_test(outputs_dir: Path, warnings: list[str]) -> ResolverResult:
+    """Resuelve el único cierre final de test a partir de su manifiesto primario."""
+    candidates = _latest_files(outputs_dir, "cierre_final_test_*/manifest.json")
+    valid: list[tuple[Path, dict[str, Any]]] = []
+
+    for manifest_path in candidates:
+        payload, err = _safe_read_json(manifest_path)
+        if err or payload is None:
+            warnings.append(f"Manifiesto de cierre final ilegible: {manifest_path} ({err}).")
+            continue
+
+        metricas = payload.get("metricas") or {}
+        estado = str(payload.get("estado", "")).strip()
+        estado_test = str(payload.get("estado_test", "")).strip()
+        es_test = str(payload.get("eval_split", "")).strip().lower() == "test"
+        estado_valido = estado == "TEST_EJECUTADO" or estado_test == "TEST_EJECUTADO_UNA_VEZ"
+        metricas_validas = all(
+            metricas.get(key) is not None
+            for key in ["macro_f1", "balanced_accuracy", "weighted_f1"]
+        )
+        if not (es_test and estado_valido and metricas_validas and int(payload.get("n_eval", 0)) > 0):
+            warnings.append(f"Manifiesto de cierre final incompleto o no válido: {manifest_path}.")
+            continue
+        valid.append((manifest_path, payload))
+
+    if not valid:
+        return ResolverResult("cierre_final_test", None, "FALTANTE", "manifest", {})
+
+    manifest_path, payload = valid[0]
+    if len(valid) > 1:
+        warnings.append(
+            "Se detectó más de un cierre final válido de test; se seleccionó el más reciente. "
+            "Verificar que test haya sido ejecutado una sola vez."
+        )
+    return ResolverResult(
+        componente="cierre_final_test",
+        path=str(manifest_path.parent),
+        estado="COMPLETO",
+        fuente="manifest",
+        detalle={"manifest_path": str(manifest_path), "manifest": payload},
+    )
+
+
+def _resolver_cierre_dev_vigente(
+    repo: Path,
+    cierre_test_res: ResolverResult,
+    warnings: list[str],
+) -> ResolverResult:
+    """Resuelve el recongelado de dev que alimentó efectivamente el cierre final."""
+    test_manifest = cierre_test_res.detalle.get("manifest", {}) if cierre_test_res.detalle else {}
+    ref = str(((test_manifest.get("artefactos") or {}).get("cierre_dev_dir")) or "").strip()
+    candidates: list[Path] = []
+    if ref:
+        ref_path = Path(ref)
+        candidates.append(ref_path if ref_path.is_absolute() else repo / ref_path)
+    candidates.extend(_latest_dirs(repo / "data" / "outputs", "cierre_dev_recongelado_*"))
+
+    seen: set[str] = set()
+    for run_dir in candidates:
+        key = str(run_dir.resolve()) if run_dir.exists() else str(run_dir)
+        if key in seen:
+            continue
+        seen.add(key)
+        manifest_path = run_dir / "manifest.json"
+        payload, err = _safe_read_json(manifest_path)
+        if err or payload is None:
+            continue
+        metricas = payload.get("metricas_principales") or {}
+        if (
+            str(payload.get("estado", "")) == "DEV_RECONGELADO_REPRODUCIBLE"
+            and str(payload.get("split", "")).lower() == "dev"
+            and metricas.get("macro_f1") is not None
+        ):
+            return ResolverResult(
+                "cierre_dev_vigente",
+                str(run_dir),
+                "COMPLETO",
+                "referencia_cierre_final_test" if ref and key == str(candidates[0].resolve()) else "scan_timestamp",
+                {"manifest_path": str(manifest_path), "manifest": payload},
+            )
+
+    warnings.append("No se pudo resolver el recongelado reproducible de dev usado para el cierre final.")
+    return ResolverResult("cierre_dev_vigente", None, "FALTANTE", "manifest", {})
+
+
 def _resolver_error_analysis(
     outputs_dir: Path,
     cierre_dir: Path,
@@ -506,12 +591,19 @@ def _detect_xai_state(repo: Path) -> dict[str, Any]:
 
     outputs = sorted(set(outputs))
     insumos = sorted(set(insumos))
+    # Los outputs SHAP existentes pertenecen a la auditoría secundaria en dev.
+    # No equivalen a la integración final de explicabilidad posterior a test.
+    estado = "PENDIENTE_POST_TEST"
+    if not outputs and insumos:
+        estado = "PREPARADO_PARA_XAI_FINAL"
+    elif outputs:
+        estado = "DISPONIBLE_EN_DEV_XAI_FINAL_PENDIENTE"
     return {
         "n_outputs": len(outputs),
         "outputs_muestra": outputs[:20],
         "n_insumos_preparatorios": len(insumos),
         "insumos_muestra": insumos[:20],
-        "estado": "DISPONIBLE" if outputs else ("PREPARADO_PARA_XAI" if insumos else "PENDIENTE"),
+        "estado": estado,
     }
 
 
@@ -1189,6 +1281,7 @@ def _error_analysis_enriched_df(
 
 def _decision_table(
     cierre_decision: dict[str, Any],
+    cierre_dev_vigente: dict[str, Any],
     transformer_best: str | None,
     backbone_best_model: str | None,
     audit_veredicto: str | None,
@@ -1221,9 +1314,17 @@ def _decision_table(
     )
     rows.append(
         {
-            "decision": "mejor_hibrido_final_dev",
+            "decision": "hibrido_tabular_referencia_dev",
             "valor": ((cierre_decision.get("modelo_hibrido_final") or {}).get("modelo_variante")),
             "fuente": "decision_modelo_final.json",
+            "estado": "historico_comparativo",
+        }
+    )
+    rows.append(
+        {
+            "decision": "modelo_global_vigente_dev",
+            "valor": cierre_dev_vigente.get("modelo_principal"),
+            "fuente": "cierre_dev_recongelado/manifest.json",
             "estado": "confirmado",
         }
     )
@@ -1231,7 +1332,7 @@ def _decision_table(
         {
             "decision": "estado_test",
             "valor": audit_veredicto or "NO_DETERMINADO",
-            "fuente": "auditoria_test",
+            "fuente": "manifest_cierre_final_test_o_auditoria_previa",
             "estado": "confirmado" if audit_veredicto else "faltante",
         }
     )
@@ -1246,7 +1347,11 @@ def _decision_table(
     rows.append(
         {
             "decision": "estado_fase",
-            "valor": "CASI_LISTO_PARA_FREEZE_OFICIAL_Y_TEST",
+            "valor": (
+                "CIERRE_FINAL_TEST_EJECUTADO"
+                if audit_veredicto == "TEST_EJECUTADO_UNA_VEZ"
+                else "PRE_TEST"
+            ),
             "fuente": "consolidacion_metodologica",
             "estado": "confirmado",
         }
@@ -1330,10 +1435,32 @@ def main() -> int:
     freeze_res = _resolver_freeze_lexico(outputs_dir, cierre_decision, warnings)
     selected_components.append(freeze_res)
 
+    cierre_test_res = _resolver_cierre_final_test(outputs_dir, warnings)
+    selected_components.append(cierre_test_res)
+
+    cierre_dev_vigente_res = _resolver_cierre_dev_vigente(repo, cierre_test_res, warnings)
+    selected_components.append(cierre_dev_vigente_res)
+
     audit_test_res = _resolver_auditoria_test(outputs_dir, warnings)
+    if audit_test_res.estado == "FALTANTE" and cierre_test_res.estado == "COMPLETO":
+        audit_test_res = ResolverResult(
+            "auditoria_test_previa",
+            None,
+            "NO_REQUERIDA_TRAS_CIERRE",
+            "manifest_cierre_final_test",
+            {},
+        )
     selected_components.append(audit_test_res)
 
     error_res = _resolver_error_analysis(outputs_dir, cierre_dir, cierre_decision, warnings)
+    if error_res.path:
+        error_res = ResolverResult(
+            "error_analysis_historico_09",
+            error_res.path,
+            error_res.estado,
+            error_res.fuente,
+            error_res.detalle,
+        )
     selected_components.append(error_res)
 
     resultados_res = _resolver_resultados_hibridos(outputs_dir, cierre_decision)
@@ -1417,14 +1544,52 @@ def main() -> int:
     if err_aligned is False:
         consistency["ok"] = False
         warnings.append(
-            f"Error analysis no alineado al modelo final: referencia={train_ref}, analizado={train_err}."
+            f"Error analysis histórico no alineado al cierre 09b: referencia={train_ref}, analizado={train_err}."
         )
-    consistency["checks"].append({"check": "error_analysis_alineado_modelo_final", "ok": err_aligned})
+    consistency["checks"].append(
+        {"check": "error_analysis_historico_alineado_cierre_09b", "ok": err_aligned}
+    )
 
     test_outputs = _detect_test_outputs(repo)
     xai_state = _detect_xai_state(repo)
     audit_veredicto = (audit_test_res.detalle.get("veredicto") if audit_test_res.detalle else None)
-    estado_test = audit_veredicto or ("PENDIENTE" if test_outputs.get("n_hits", 0) == 0 else "NO_AUDITADO_CON_OUTPUTS")
+    cierre_test_manifest = cierre_test_res.detalle.get("manifest", {}) if cierre_test_res.detalle else {}
+    cierre_dev_vigente_manifest = (
+        cierre_dev_vigente_res.detalle.get("manifest", {}) if cierre_dev_vigente_res.detalle else {}
+    )
+    cierre_dev_ref_test = str(
+        ((cierre_test_manifest.get("artefactos") or {}).get("cierre_dev_dir")) or ""
+    ).strip()
+    cierre_dev_ref_path = Path(cierre_dev_ref_test) if cierre_dev_ref_test else None
+    if cierre_dev_ref_path is not None and not cierre_dev_ref_path.is_absolute():
+        cierre_dev_ref_path = repo / cierre_dev_ref_path
+    cierre_dev_alineado = (
+        cierre_dev_ref_path.resolve() == Path(cierre_dev_vigente_res.path).resolve()
+        if cierre_dev_ref_path is not None and cierre_dev_vigente_res.path
+        else None
+    )
+    consistency["checks"].append(
+        {"check": "cierre_dev_vigente_referenciado_por_test", "ok": cierre_dev_alineado}
+    )
+    if cierre_dev_alineado is False:
+        consistency["ok"] = False
+        warnings.append("El cierre final de test no referencia el recongelado de dev seleccionado.")
+
+    reproduce_dev = (
+        (cierre_dev_vigente_manifest.get("check_reproduccion_roberta_dev") or {}).get("reproduce_reference")
+    )
+    consistency["checks"].append(
+        {"check": "checkpoint_roberta_reproduce_referencia_dev", "ok": reproduce_dev}
+    )
+    if reproduce_dev is False:
+        consistency["ok"] = False
+        warnings.append("El checkpoint ROBERTA del cierre vigente no reproduce la referencia de dev.")
+    if cierre_test_res.estado == "COMPLETO":
+        estado_test = str(cierre_test_manifest.get("estado_test") or "TEST_EJECUTADO_UNA_VEZ")
+    else:
+        estado_test = audit_veredicto or (
+            "PENDIENTE" if test_outputs.get("n_hits", 0) == 0 else "NO_AUDITADO_CON_OUTPUTS"
+        )
     test_pendiente = estado_test in {"PENDIENTE", "TEST_VIRGEN", "NO_ENCONTRADO"}
 
     # Salida
@@ -1456,20 +1621,44 @@ def main() -> int:
             "backbone_ganador_hibrido_dev": backbone_best_model,
             "coinciden": bool(transformer_best and backbone_best_model and transformer_best == backbone_best_model),
         },
+        "cierre_dev_vigente": {
+            "run_id": cierre_dev_vigente_manifest.get("run_id"),
+            "estado": cierre_dev_vigente_manifest.get("estado"),
+            "modelo_principal": cierre_dev_vigente_manifest.get("modelo_principal"),
+            "pesos_principales": cierre_dev_vigente_manifest.get("pesos_principales"),
+            "n_eval": cierre_dev_vigente_manifest.get("n_eval"),
+            "n_pacientes": cierre_dev_vigente_manifest.get("n_pacientes_dev"),
+            "metricas_principales": cierre_dev_vigente_manifest.get("metricas_principales"),
+        },
         "estado_fase_final": {
             "test_outputs_detectados": test_outputs,
             "xai_estado_detectado": xai_state,
             "estado_test": estado_test,
             "test_pendiente": test_pendiente,
-            "xai_pendiente": xai_state.get("estado") == "PENDIENTE",
+            "xai_pendiente": "PENDIENTE" in str(xai_state.get("estado", "")),
         },
         "fuentes_de_verdad": {
-            "cierre_formal_dev": cierre_res.path,
+            "cierre_historico_09b": cierre_res.path,
+            "cierre_dev_vigente": (
+                cierre_dev_vigente_res.detalle.get("manifest_path")
+                if cierre_dev_vigente_res.detalle
+                else None
+            ),
             "freeze_lexico": freeze_res.path,
-            "auditoria_test": audit_test_res.path,
+            "auditoria_test_previa": (
+                audit_test_res.path
+                or ("NO_REQUERIDA_TRAS_CIERRE" if cierre_test_res.estado == "COMPLETO" else None)
+            ),
+            "cierre_final_test": cierre_test_res.detalle.get("manifest_path") if cierre_test_res.detalle else None,
             "seleccion_transformer": transformer_res.path,
             "comparacion_backbones_hibrido": backbone_res.path,
-            "error_analysis_modelo_final": error_res.path,
+            "error_analysis_historico_09": error_res.path,
+            "error_analysis_dev_vigente": (
+                (cierre_dev_vigente_manifest.get("outputs") or {}).get("analisis_errores_dev")
+            ),
+            "error_analysis_test_final": (
+                (cierre_test_manifest.get("outputs") or {}).get("analisis_errores_test")
+            ),
             "tabla_maestra_resultados": str(table_maestra_path) if table_maestra_path else None,
         },
     }
@@ -1533,17 +1722,29 @@ def main() -> int:
         pd.DataFrame(columns=hibridos_cols).to_csv(out_dir / "hibridos_dev_resumen.csv", index=False)
 
     modelo_final_resumen = {
-        "fecha_cierre": cierre_decision.get("fecha_decision"),
-        "split_decision": cierre_decision.get("split_decision"),
-        "modelo_hibrido_final": cierre_decision.get("modelo_hibrido_final"),
-        "modelos_que_pasan_a_test": cierre_decision.get("modelos_que_pasan_a_test"),
-        "freeze_lexico": cierre_decision.get("freeze_lexico"),
-        "seleccion_transformer_04c": cierre_decision.get("seleccion_transformer_04c"),
-        "comparacion_controlada_backbones_hibrido": cierre_decision.get("comparacion_controlada_backbones_hibrido"),
+        "estado": cierre_dev_vigente_manifest.get("estado"),
+        "fecha_cierre": cierre_dev_vigente_manifest.get("fecha"),
+        "split_decision": cierre_dev_vigente_manifest.get("split"),
+        "modelo_principal": cierre_dev_vigente_manifest.get("modelo_principal"),
+        "pesos_principales": cierre_dev_vigente_manifest.get("pesos_principales"),
+        "n_eval": cierre_dev_vigente_manifest.get("n_eval"),
+        "n_pacientes": cierre_dev_vigente_manifest.get("n_pacientes_dev"),
+        "metricas_principales": cierre_dev_vigente_manifest.get("metricas_principales"),
+        "check_reproduccion_roberta_dev": cierre_dev_vigente_manifest.get("check_reproduccion_roberta_dev"),
+        "cierre_historico_09b": {
+            "fecha_cierre": cierre_decision.get("fecha_decision"),
+            "modelo_hibrido_final": cierre_decision.get("modelo_hibrido_final"),
+            "modelos_que_pasan_a_test": cierre_decision.get("modelos_que_pasan_a_test"),
+            "freeze_lexico": cierre_decision.get("freeze_lexico"),
+            "seleccion_transformer_04c": cierre_decision.get("seleccion_transformer_04c"),
+            "comparacion_controlada_backbones_hibrido": cierre_decision.get("comparacion_controlada_backbones_hibrido"),
+        },
         "paths_fuente": {
-            "cierre_dir": str(cierre_dir),
-            "decision_json": str(cierre_dir / "decision_modelo_final.json"),
-            "ranking_csv": str(cierre_dir / "ranking_modelos_dev.csv"),
+            "cierre_dev_vigente_dir": cierre_dev_vigente_res.path,
+            "cierre_dev_vigente_manifest": cierre_dev_vigente_res.detalle.get("manifest_path") if cierre_dev_vigente_res.detalle else None,
+            "cierre_historico_09b_dir": str(cierre_dir),
+            "decision_historica_json": str(cierre_dir / "decision_modelo_final.json"),
+            "ranking_historico_csv": str(cierre_dir / "ranking_modelos_dev.csv"),
         },
     }
     _write_json(out_dir / "modelo_final_dev_resumen.json", modelo_final_resumen)
@@ -1551,13 +1752,33 @@ def main() -> int:
     auditoria_test_resumen = {
         "path_md": audit_test_res.detalle.get("md_path") if audit_test_res.detalle else None,
         "path_csv": audit_test_res.detalle.get("csv_path") if audit_test_res.detalle else None,
-        "veredicto": audit_test_res.detalle.get("veredicto") if audit_test_res.detalle else "NO_ENCONTRADO",
+        "veredicto": (
+            audit_test_res.detalle.get("veredicto")
+            if audit_test_res.detalle
+            else audit_test_res.estado
+        ),
         "estado": audit_test_res.estado,
     }
     _write_json(out_dir / "auditoria_test_resumen.json", auditoria_test_resumen)
 
-    error_analysis_df.to_csv(out_dir / "error_analysis_modelo_final_resumen.csv", index=False)
-    (out_dir / "error_analysis_modelo_final_resumen.md").write_text(error_analysis_md, encoding="utf-8")
+    cierre_final_test_resumen = {
+        "manifest_path": cierre_test_res.detalle.get("manifest_path") if cierre_test_res.detalle else None,
+        "run_id": cierre_test_manifest.get("run_id"),
+        "fecha": cierre_test_manifest.get("fecha"),
+        "estado": cierre_test_manifest.get("estado"),
+        "estado_test": cierre_test_manifest.get("estado_test"),
+        "eval_split": cierre_test_manifest.get("eval_split"),
+        "modelo": cierre_test_manifest.get("modelo"),
+        "pesos": cierre_test_manifest.get("pesos"),
+        "n_eval": cierre_test_manifest.get("n_eval"),
+        "n_pacientes": cierre_test_manifest.get("n_pacientes"),
+        "metricas": cierre_test_manifest.get("metricas"),
+        "restricciones": cierre_test_manifest.get("restricciones"),
+    }
+    _write_json(out_dir / "cierre_final_test_resumen.json", cierre_final_test_resumen)
+
+    error_analysis_df.to_csv(out_dir / "error_analysis_historico_09_resumen.csv", index=False)
+    (out_dir / "error_analysis_historico_09_resumen.md").write_text(error_analysis_md, encoding="utf-8")
 
     # Tabla maestra de resultados: usar la tabla de barrido/referencia del cierre y enriquecer con flags de selección
     if not tabla_maestra_df.empty:
@@ -1570,6 +1791,7 @@ def main() -> int:
 
     decisiones_df = _decision_table(
         cierre_decision=cierre_decision,
+        cierre_dev_vigente=cierre_dev_vigente_manifest,
         transformer_best=transformer_best,
         backbone_best_model=backbone_best_model,
         audit_veredicto=estado_test,
@@ -1655,7 +1877,7 @@ def main() -> int:
     if git_info.get("error"):
         md.append(f"- Nota: no se pudo resolver el estado Git completo (`{git_info['error']}`).")
     md.append("")
-    md.append("## Estado de fases pendientes")
+    md.append("## Estado de las fases finales")
     md.append(
         f"- Auditoría de test: `{auditoria_test_resumen.get('veredicto')}`"
     )
@@ -1672,16 +1894,41 @@ def main() -> int:
         f"- Estado xAI: `{xai_state.get('estado')}`"
     )
     md.append("")
-    md.append("## Modelo final vigente en `dev`")
-    modelo_final = (cierre_decision.get("modelo_hibrido_final") or {})
-    md.append(f"- Variante: `{modelo_final.get('modelo_variante')}`")
-    md.append(f"- Perfil/modelo: `{modelo_final.get('perfil')}` / `{modelo_final.get('modelo')}`")
-    md.append(f"- macro_f1_dev: `{modelo_final.get('macro_f1_dev')}`")
-    md.append(f"- balanced_accuracy_dev: `{modelo_final.get('balanced_accuracy_dev')}`")
-    md.append(f"- f1_ansiedad_dev: `{modelo_final.get('f1_ansiedad_dev')}`")
-    md.append(f"- f1_depresion_dev: `{modelo_final.get('f1_depresion_dev')}`")
+    md.append("## Resultado final en `test`")
+    if cierre_test_res.estado == "COMPLETO":
+        metricas_test = cierre_test_manifest.get("metricas") or {}
+        md.append(f"- Run ID: `{cierre_test_manifest.get('run_id')}`")
+        md.append(f"- Modelo: `{cierre_test_manifest.get('modelo')}`")
+        md.append(
+            f"- Muestra: `{cierre_test_manifest.get('n_eval')}` notas de "
+            f"`{cierre_test_manifest.get('n_pacientes')}` pacientes"
+        )
+        md.append(f"- Macro-F1: `{metricas_test.get('macro_f1')}`")
+        md.append(f"- Balanced accuracy: `{metricas_test.get('balanced_accuracy')}`")
+        md.append(f"- Weighted-F1: `{metricas_test.get('weighted_f1')}`")
+        md.append("- Lectura: resultado hold-out final; no se usa para reajustar modelos, pesos ni reglas.")
+    else:
+        md.append("- No se encontró un manifiesto válido del cierre final en `test`.")
     md.append("")
-    md.append("## Modelos que pasan a `test`")
+    md.append("## Análisis de errores vigentes")
+    md.append(
+        f"- Ensamble recongelado en `dev`: `{(cierre_dev_vigente_manifest.get('outputs') or {}).get('analisis_errores_dev')}`"
+    )
+    md.append(
+        f"- Cierre final en `test`: `{(cierre_test_manifest.get('outputs') or {}).get('analisis_errores_test')}`"
+    )
+    md.append(f"- Notebook `09` histórico: `{error_res.path}`")
+    md.append("")
+    md.append("## Modelo final vigente en `dev`")
+    metricas_dev_vigentes = cierre_dev_vigente_manifest.get("metricas_principales") or {}
+    md.append(f"- Variante: `{cierre_dev_vigente_manifest.get('modelo_principal')}`")
+    md.append(f"- Pesos: `{cierre_dev_vigente_manifest.get('pesos_principales')}`")
+    md.append(f"- macro_f1_dev: `{metricas_dev_vigentes.get('macro_f1')}`")
+    md.append(f"- balanced_accuracy_dev: `{metricas_dev_vigentes.get('balanced_accuracy')}`")
+    md.append(f"- f1_ansiedad_dev: `{metricas_dev_vigentes.get('f1_ansiedad')}`")
+    md.append(f"- f1_depresion_dev: `{metricas_dev_vigentes.get('f1_depresion')}`")
+    md.append("")
+    md.append("## Shortlist congelada antes de `test`")
     modelos_test = cierre_decision.get("modelos_que_pasan_a_test") or []
     if modelos_test:
         for item in modelos_test:
@@ -1712,8 +1959,9 @@ def main() -> int:
         "hibridos_dev_resumen.csv",
         "modelo_final_dev_resumen.json",
         "auditoria_test_resumen.json",
-        "error_analysis_modelo_final_resumen.csv",
-        "error_analysis_modelo_final_resumen.md",
+        "cierre_final_test_resumen.json",
+        "error_analysis_historico_09_resumen.csv",
+        "error_analysis_historico_09_resumen.md",
         "tabla_maestra_resultados.csv",
         "tabla_decisiones_metodologicas_clave.csv",
         "tabla_decisiones_metodologicas_clave.md",
