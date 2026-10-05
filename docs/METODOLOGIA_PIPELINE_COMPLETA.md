@@ -3,6 +3,8 @@
 ## Propósito de este documento
 Este documento describe de forma integral cómo funciona el proyecto, qué problema resuelve, qué decisiones metodológicas toma y cómo se conectan entre sí notebooks, scripts y artefactos. Su objetivo es que una persona pueda entender el experimento sin abrir los notebooks ni reconstruir el flujo a partir del código.
 
+El resumen vigente está en [Metodología](METODOLOGIA.md), y cifras/procedencia en [Revalidación](REVALIDACION_RESULTADOS_REFERENCIA.md). `09b`/`09` describen el cierre multicriterio histórico; el ensamble recongelado y sus pesos constituyen un cierre posterior distinto. Las auditorías y materiales clínicos no equivalen a validación clínica completada.
+
 ## Qué hace el proyecto
 El proyecto implementa un pipeline reproducible para clasificar notas clínicas psiquiátricas en español de Paraguay entre dos etiquetas:
 
@@ -28,16 +30,16 @@ La estrategia del proyecto no consiste en aplicar un clasificador sobre texto cr
 
 1. limpiar y estabilizar el corpus;
 2. congelar una partición por paciente;
-3. definir un universo modelado clínicamente más coherente mediante denoising;
+3. definir un universo elegible mediante denoising, cuya correctitud clínica sigue pendiente de revisión completa;
 4. comparar líneas base fuertes sobre ese mismo universo;
 5. justificar y construir una arquitectura léxica adaptada al español clínico paraguayo;
 6. transformar el texto en una matriz híbrida de evidencia clínica, contextual y auxiliar;
 7. entrenar variantes comparables del híbrido;
 8. aislar la decisión del backbone contextual del híbrido;
 9. explorar ablaciones y estabilidad;
-10. cerrar formalmente la selección en `dev` con una rúbrica multicriterio;
+10. conservar el cierre multicriterio histórico del híbrido y seleccionar posteriormente los pesos del ensamble en `dev`;
 11. analizar errores del modelo congelado;
-12. auditar en `dev` robustez secundaria antes de abrir `test`;
+12. conservar controles secundarios sobre las configuraciones históricas en `dev`;
 13. ejecutar una única evaluación final predict-only en `test` con el ensamble congelado;
 14. preparar, como fase secundaria, material para revisión clínica externa y xAI.
 
@@ -77,7 +79,7 @@ Construye familias separadas de evidencia:
 - `ctx_<backbone>_*`: embeddings contextuales.
 
 ### 4. Capa de decisión experimental
-Compara líneas base, resuelve backbone, explora ablaciones, congela el modelo en `dev` y ejecuta una sola evaluación final en `test` sin reajuste.
+Compara líneas base, resuelve backbone, explora ablaciones y congela el modelo en `dev`. El ensamble se evalúa en prueba sin reajuste; sus comparadores posteriores tienen procedencia separada.
 
 ## Diferencia entre universos del corpus
 El repositorio trabaja con varios niveles del corpus, y esa distinción es crucial para entender las comparaciones.
@@ -97,7 +99,7 @@ Es el universo finalmente modelado por el pipeline principal. Aquí se descarta 
 ## Por qué el proyecto no compara el modelo final contra texto crudo
 El pipeline principal no usa `ips_raw.csv` para las líneas base oficiales. Las comparaciones canónicas se hacen sobre el universo `denoised`, porque ese es el espacio experimental que el proyecto considera más coherente para una tarea diferencial entre ansiedad y depresión.
 
-Existe un contraste secundario `crudo vs filtrado`, pero su rol es metodológico: justificar el denoising, no redefinir el ranking principal de modelos.
+Existe un contraste secundario `crudo vs filtrado`; no redefine el ranking principal ni demuestra por sí solo una mejora causal o la correctitud clínica de todas las exclusiones.
 
 ## Flujo oficial del proyecto
 El flujo oficial se divide en dos capas:
@@ -420,7 +422,7 @@ No redefine resultados; ordena trazabilidad.
 
 ### 09b. `09b_cierre_modelos_dev.ipynb`
 **Qué hace**
-Cierra formalmente la selección de modelos en `dev`.
+Conserva el cierre multicriterio histórico de modelos en `dev`; no seleccionó los pesos vigentes del ensamble.
 
 **Qué decide**
 Define el cierre comparativo en `dev` y la shortlist que se congela antes de `test`.
@@ -441,13 +443,13 @@ Define el cierre comparativo en `dev` y la shortlist que se congela antes de `te
 - penalización de bloques metodológicamente más riesgosos.
 
 **Por qué es importante**
-La decisión final del proyecto no se apoya en una sola tabla ni en un solo decimal.
+Esta decisión histórica incorpora varios criterios. El recongelado posterior del ensamble seleccionó pesos por Macro-F1 en `dev` entre 231 ternas; no debe atribuirse esa selección a esta rúbrica.
 
 **Referencia híbrida tabular retenida**
 - `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB`
 - se conserva como comparador histórico; el cierre global vigente es el ensamble por ramas 512 recongelado.
 
-**Shortlist congelada antes de `test`**
+**Shortlist histórica de esta etapa**
 - `TF-IDF`
 - `ROBERTA_CLINICAL`
 - híbrido final `py|XGB`
@@ -455,7 +457,7 @@ La decisión final del proyecto no se apoya en una sola tabla ni en un solo deci
 
 ### 09. `09_analisis_errores_hibrido.ipynb`
 **Qué hace**
-Analiza errores del modelo final ya congelado.
+Analiza errores asociados al cierre histórico en `dev`.
 
 **Qué decide**
 No redefine la selección. Interpreta el comportamiento del modelo elegido.
@@ -473,7 +475,7 @@ Separa la interpretación clínica y documental de la fase de selección cuantit
 Ejecuta inferencia final predict-only sobre `test` con el ensamble por ramas recongelado en `dev`.
 
 **Qué decide**
-No selecciona ni reajusta nada. Produce la única estimación hold-out final del proyecto.
+No selecciona ni reajusta nada. Produce la evaluación final del ensamble y sus ramas; las comparaciones posteriores de TF-IDF y del híbrido no proceden de esta misma ejecución.
 
 **Cómo lo hace**
 - reproduce la rama `ROBERTA_CLINICAL` 512 contra la referencia congelada en `dev`;
@@ -492,7 +494,7 @@ El resultado no se usa para modificar modelos, pesos, reglas ni umbral.
 
 ### 09c. `09c_auditoria_validacion_secundaria_dev.ipynb`
 **Qué hace**
-Orquesta una auditoría secundaria reproducible sobre `dev` antes de abrir `test`.
+Orquesta controles secundarios sobre las configuraciones históricas en `dev`, sin seleccionar con prueba.
 
 **Qué decide**
 No redefine el modelo final, no reabre búsqueda y no cambia la ontología.
@@ -606,9 +608,9 @@ Es la forma más rápida de responder: cuál es el estado vigente del proyecto s
 | Consolidación | `08` | cómo se comparan de forma homogénea líneas base e híbridos |
 | Ablación | `scripts/ejecutar_barrido_ablacion_hibrido.py` | qué bloques del híbrido aportan o sobran |
 | Freeze | `scripts/audit/generar_freeze_lexico.py` | qué versión exacta del soporte clínico se congela |
-| Cierre | `09b` | cuál es el modelo final defendible en `dev` |
-| Interpretación | `09` | cómo se comporta el modelo final en términos de errores |
-| Auditoría secundaria | `09c` | qué controles de robustez se reportan antes de abrir `test` |
+| Cierre histórico | `09b` | qué híbrido retuvo la rúbrica multicriterio en `dev` |
+| Interpretación histórica | `09` | cómo falla el modelo asociado a ese cierre |
+| Auditoría secundaria | `09c` | qué controles se reportan sobre configuraciones históricas en `dev` |
 | Cierre final | `pipeline/10` | cuál es el rendimiento hold-out del ensamble congelado en `test` |
 | Revisión externa | `analysis/10` | cómo traducir el cierre a material clínico y xAI |
 
@@ -632,8 +634,8 @@ La responde `scripts/comparar_backbones_hibrido.py`.
 - por eso `06` usa `BETO` por defecto;
 - y `FE_TEXT_BACKBONE=auto` solo existe para un override explícito.
 
-## Estrategia de selección final
-El proyecto no cierra el modelo final con una regla simplista del tipo “gana el mayor `macro_f1`”.
+## Estrategia de selección histórica del híbrido
+La rúbrica de `09b` no retuvo el híbrido solo por el mayor `macro_f1`. Es una decisión distinta de la grilla posterior de pesos del ensamble, que sí seleccionó la mejor terna por Macro-F1 en `dev`.
 
 La estrategia de cierre en `dev` combina:
 
@@ -650,8 +652,8 @@ Eso explica por qué el proyecto puede retener una variante híbrida contenida a
 ## Contrastes secundarios y material de apoyo
 El repositorio también conserva materiales metodológicos secundarios que no forman parte del benchmark canónico:
 
-- contraste `baseline_crudo_vs_filtrado` para justificar el denoising;
-- auditoría secundaria `09c` sobre `dev` antes de abrir `test`;
+- contraste `baseline_crudo_vs_filtrado` para explorar el efecto del universo filtrado, no demostrar correctitud clínica;
+- auditoría secundaria `09c` sobre configuraciones históricas en `dev`;
 - revisión clínica externa;
 - dossier curado para xAI.
 
@@ -680,13 +682,17 @@ A la fecha de este documento, el estado metodológico vigente es:
 - mejor baseline simple: `TF-IDF`;
 - mejor transformer standalone: `ROBERTA_CLINICAL`;
 - mejor backbone del híbrido: `BETO`;
-- mejor híbrido tabular comparativo en `dev`: `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB`;
+- híbrido reducido histórico: `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB` (861 variables);
+- comparador híbrido completo PY XGBoost 512: 958 variables, Macro-F1 en `dev` `0.723387` y en `test` `0.506520`;
 - mejor modelo global en `dev`: ensamble weighted soft 512 recongelado con pesos `0.65 / 0.15 / 0.20`;
-- `test`: ejecutado una sola vez, Macro-F1 `0.555807` y balanced accuracy `0.553883`;
+- ensamble en `test`: Macro-F1 `0.555807` y balanced accuracy `0.553883`, sin reajuste;
+- TF-IDF + LinearSVC: mayor Macro-F1 puntual en prueba, `0.584478`, en comparación posterior;
 - xAI: SHAP mínimo en `dev` ejecutado; integración final pendiente.
 
 ## Cómo reproducir el estado actual sin interpretar código
 ### Camino recomendado
+Con los insumos completos de `01` disponibles; consultar [Guía de ejecución](GUIA_EJECUCION.md) para la primera pasada de limpieza, artefactos de `02`/`03` y tokenizer local.
+
 ```bash
 python scripts/regenerar_pipeline_desarrollo.py --dry-run
 python scripts/regenerar_pipeline_desarrollo.py --incluir-comparacion-backbones
@@ -700,6 +706,8 @@ python scripts/reportes/generar_reporte_estado_actual.py --verbose
 - cierre formal en `dev`;
 - auditoría secundaria reproducible sobre `dev`;
 - un reporte consolidado del estado actual.
+
+Este recorrido genera una nueva corrida de desarrollo; no recupera automáticamente checkpoints, extracción LLM o modelos originales. La reproducción del cierre vigente requiere artefactos conservados e identificadores explícitos, no solo punteros `latest`.
 
 ## Resumen final
 El proyecto no es un conjunto de notebooks sueltos. Es un pipeline metodológico donde cada etapa responde una pregunta distinta y deja artefactos explícitos para la etapa siguiente.

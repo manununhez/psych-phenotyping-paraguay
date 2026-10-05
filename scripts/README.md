@@ -105,6 +105,8 @@ python scripts/reportes/generar_reporte_estado_actual.py --verbose
 - Script principal: `scripts/regenerar_pipeline_desarrollo.py`.
 - Wrapper opcional: `scripts/run_regeneracion_desarrollo.sh`.
 - Alcance: hasta cierre formal en `dev`, sin ejecutar `test` ni xAI.
+- El EDA completo de `01` necesita salidas de `02`/`03` y un tokenizer local. En un arranque limpio ejecutar primero la sección de limpieza, materializar los insumos y volver a `01`; el orquestador no implementa automáticamente esta doble pasada. Véase [Guía de ejecución](../docs/GUIA_EJECUCION.md).
+- Una nueva regeneración/selección es otra corrida: no garantiza recuperar los modelos ni el ranking del cierre congelado.
 - La auditoría secundaria `09c` queda fuera de la selección: consume artefactos congelados en `dev` y no reabre modelos.
 - Flujo metodológico resumido:
   1. datos, split y denoising (`01`-`03`);
@@ -130,12 +132,17 @@ python scripts/regenerar_pipeline_desarrollo.py --limpiar-outputs --confirmar-li
 
 ## Extracción semántica acotada con LLM
 - Script: `scripts/llm/run_gemini_constrained.py`.
-- Rol: generar `data/processed/gemini_extraction.json` para normalización semántica de síntomas y apoyo de auditoría léxica.
+- Rol: generar `data/processed/gemini_extraction.json` para normalizar síntomas a categorías definidas. El apoyo LLM a revisión del vocabulario es una operación distinta, no demostrada por ejecutar este script.
 - Restricción metodológica: el LLM no se usa como clasificador clínico directo.
+- La entrada conservada usa `row_id` y texto, sin etiquetas ni identificador de paciente como campos; contiene las 1835 notas de los tres conjuntos. Esa separación de campos no acredita desidentificación del texto.
+- Reutilizar la extracción conservada para reproducción. Una llamada nueva a la API externa requiere autorización y revisión del resguardo, genera otro artefacto y no garantiza identidad de resultados.
+- Conservar modelo efectivo, prompt, parámetros, fechas, validaciones y hashes de entrada/salida. El valor predeterminado del modelo no prueba cuál se ejecutó; JSON válido no significa extracción clínicamente correcta.
+- No versionar claves, entradas clínicas ni salidas individuales.
 
 ## Comparación controlada de backbones en híbrido
 - Script: `scripts/comparar_backbones_hibrido.py`.
 - Rol: comparar `BETO` y alternativas dentro del híbrido, manteniendo constante el resto de la configuración.
+- El resultado histórico BETO `0.728894` frente a RoBERTa clínico `0.724315` corresponde a 861 variables, no al híbrido completo 512 de 958 ni a la rama contextual ajustada del ensamble.
 - Resultado esperado: artefactos en `data/outputs/comparacion_backbones_hibrido_<timestamp>/` y puntero `comparacion_backbones_hibrido_latest.json`.
 
 ## Barrido y ablación del híbrido
@@ -162,6 +169,7 @@ python scripts/regenerar_pipeline_desarrollo.py --limpiar-outputs --confirmar-li
 ## Cierre formal de modelos en `dev`
 - Script estable: `scripts/cerrar_modelos_dev.py`.
 - Implementación operativa: `scripts/audit/cerrar_modelos_dev.py`.
+- Conserva el cierre multicriterio histórico del híbrido. No seleccionó los pesos actuales del ensamble, fijados durante el recongelado por una grilla de 231 ternas en `dev`.
 - Uso:
 ```bash
 python scripts/cerrar_modelos_dev.py
@@ -176,11 +184,11 @@ Salidas del cierre:
 - `data/outputs/cierre_modelos_dev_<timestamp>/lista_modelos_para_test.json`
 - `data/outputs/cierre_modelos_dev_<timestamp>/riesgos_y_limitaciones_dev.md`
 
-## Auditoría secundaria pre-`test` en `dev`
+## Auditoría secundaria histórica en `dev`
 - Notebook orquestador: `notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb`.
 - Script reproducible: `scripts/audit/generar_auditoria_validacion_secundaria_dev.py`.
 - Alcance:
-  - consume el cierre `09b`, predicciones del XGB final, baselines y splits ya congelados;
+  - consume el cierre `09b`, predicciones del XGB reducido histórico, baselines y splits congelados;
   - reconstruye Caso C, métricas por paciente, AP/PR-AUC de ansiedad, umbral, denoising, subgrupos, sensibilidad `sample_weight` y SHAP;
   - no reabre selección de modelo, ontología ni tarea binaria.
 - Uso:
@@ -206,6 +214,7 @@ python scripts/audit/generar_auditoria_validacion_secundaria_dev.py
   - consume artefactos ya cerrados en `dev`;
   - no reabre entrenamiento ni redefine la shortlist;
   - prepara material para revisión clínica externa y casos reutilizables para xAI.
+  - no acredita que la revisión clínica haya sido completada.
 
 ## Reporte de estado actual
 - Script: `scripts/reportes/generar_reporte_estado_actual.py`.
@@ -217,6 +226,8 @@ python scripts/audit/generar_auditoria_validacion_secundaria_dev.py
 - Salidas:
   - `data/outputs/reporte_estado_actual_<timestamp>/`
   - `data/outputs/reporte_estado_actual_latest.json`
+
+El reporte usa artefactos locales disponibles y su compatibilidad. No reemplaza los manifiestos congelados ni garantiza incluir todas las auditorías posteriores. `data/` y `reports/` quedan fuera del repositorio público; los informes internos y diagnósticos exploratorios no deben añadirse a esta superficie de scripts.
 
 ## Manifiesto de artefactos de backbone
 - Script: `scripts/audit/registrar_artefactos_backbone.py`.

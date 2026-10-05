@@ -1,162 +1,64 @@
 # Metodología
 
-## Qué resume este documento
-Este archivo funciona como resumen ejecutivo de la metodología vigente. No intenta reemplazar la documentación detallada del repositorio; su función es fijar en una sola página qué problema se resuelve, qué invariantes rigen el experimento y qué decisiones estructurales ya quedaron cerradas.
+## Objetivo y unidad de análisis
+El pipeline clasifica notas clínicas psiquiátricas del IPS, en español de Paraguay, entre `ansiedad` y `depresion`. La unidad principal de predicción y evaluación es la nota; los pacientes se separan entre conjuntos. No constituye diagnóstico clínico autónomo ni screening: no incluye controles ni una clase de comorbilidad.
 
-Para el detalle completo del flujo usar:
-- `docs/METODOLOGIA_PIPELINE_COMPLETA.md`
-- `docs/METODOLOGIA_HIBRIDO_ABLACION_Y_CIERRE.md`
-- `docs/ARTEFACTOS_Y_CONTRATOS.md`
-- `docs/SPANISH_PSYCH_PHENOTYPING_PY.md`
+Las ramas del ensamble producen probabilidades. TF-IDF + LinearSVC produce decisiones mediante un margen lineal, no probabilidades calibradas.
 
-## Objetivo experimental vigente
-El proyecto implementa un pipeline reproducible para clasificar notas clínicas psiquiátricas en español de Paraguay entre dos etiquetas:
+## Universo y EDA
+La preparación conserva `3155 -> 3143 -> 1835` notas: corpus original, base limpia y universo denoised. Permanecen los 90 pacientes. `02` fija la partición por paciente antes del filtro de `03`.
 
-- `ansiedad`
-- `depresion`
-
-La salida es probabilística. En esta fase no se modela una clase explícita de `comorbilidad`. La evaluación final en `test` ya fue ejecutada una sola vez con el cierre `dev` recongelado; la explicabilidad final sigue pendiente como análisis pos-hoc.
-
-## Cierre dev vigente
-El cierre técnico vigente en `dev`, tras el recongelado reproducible del 2026-06-06, es un ensamble por ramas con `max_length=512`:
-
-- rama contextual: `ROBERTA_CLINICAL` standalone, `hidden_size=768`, salida probabilística por clase;
-- rama simbólica regionalizada: `Concept_Core + Concept_PY` con `RandomForest`;
-- rama simbólica core con late fusion LLM: `RandomForest`;
-- combinación: weighted soft voting con pesos `0.65 / 0.15 / 0.20`.
-
-La corrida anterior de mayo con pesos `0.80 / 0.10 / 0.10` queda preservada como cierre histórico en `dev`, pero no es la configuración reproducible vigente para avanzar a `test`, porque no se encontró el checkpoint exacto de `ROBERTA_CLINICAL 512` que la reproduzca.
-
-Resultado principal en `dev`:
-
-| Modelo | Macro F1 | Balanced accuracy | Weighted F1 | F1 ansiedad | F1 depresión |
-|---|---:|---:|---:|---:|---:|
-| Ensamble weighted soft 512 recongelado | `0.757017` | `0.765638` | `0.796002` | `0.663507` | `0.850526` |
-| `ROBERTA_CLINICAL` 512 recongelado | `0.747232` | `0.760350` | `0.785943` | `0.654378` | `0.840085` |
-| Híbrido tabular 512 `py XGB` | `0.723387` | `0.717099` | `0.774828` | `0.600000` | `0.846774` |
-
-El cierre híbrido tabular previo se conserva como referencia histórica/comparativa. La configuración `max_length=256` queda documentada como sensibilidad no adoptada.
-
-## Resultado final en test
-
-El conjunto `test` se abrió una sola vez con la configuración congelada en `dev`, sin reentrenar, sin modificar pesos y sin modificar reglas clínicas.
-
-| Modelo | n_eval | pacientes | Macro F1 | Balanced accuracy | Weighted F1 | F1 ansiedad | F1 depresión |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Ensamble weighted soft 512 recongelado | `385` | `18` | `0.555807` | `0.553883` | `0.671349` | `0.320442` | `0.791171` |
-
-Matriz de confusión:
-
-|                | pred_ansiedad | pred_depresion |
-|---|---:|---:|
-| true_ansiedad  | `29` | `69` |
-| true_depresion | `54` | `233` |
-
-Lectura: el rendimiento final cae frente a `dev`, principalmente por baja recuperación de ansiedad. Este resultado no se usa para reajustar el modelo; queda como evaluación hold-out final.
-
-## Invariantes metodológicos
-Estas decisiones se tratan como congeladas:
-
-- `patient-level split`;
-- universo canónico de comparación en `dataset_denoised`;
-- capas clínicas `Concept_CO`, `Concept_Core`, `Concept_PY`;
-- perfiles:
-  - `co` = `Concept_CO`
-  - `core` = `Concept_Core`
-  - `py` = `Concept_Core` + `Concept_PY`
-- `late fusion` restringida a síntomas:
-  - `feat_X = max(rule_X, llm_X)`
-- `rule_medication_*` como evidencia terapéutica separada.
-
-## Secuencia metodológica
-La lógica del experimento sigue esta cadena:
-
-1. limpieza inicial del corpus;
-2. split congelado por paciente;
-3. denoising clínico para definir el universo modelado;
-4. líneas base oficiales sobre ese mismo universo;
-5. auditoría de brecha léxica y fijación de perfiles clínicos;
-6. construcción de la matriz híbrida de features;
-7. entrenamiento tabular y comparación `RF/XGB`;
-8. comparación controlada de backbone del híbrido;
-9. barrido, ablación y estabilidad multi-seed;
-10. freeze léxico;
-11. cierre formal del ensamble por ramas en `dev`;
-12. análisis de errores del modelo recomendado;
-13. auditoría secundaria pre-`test` en `dev` cuando corresponda (`09c`).
-14. evaluación final predict-only del ensamble congelado en `test` (`10`).
-
-## Rol del LLM
-El LLM se usa de manera acotada para:
-
-1. normalización semántica de síntomas;
-2. apoyo de auditoría léxica.
-
-No se usa como clasificador clínico directo ni como generador libre de nuevas categorías diagnósticas.
-
-## Señal clínica útil, `keep_entity` y negación
-El denoising no se define por una lista ad hoc de notas "buenas" y "malas". Se apoya en una política explícita de aseveración clínica implementada en `utils_shared.keep_entity`.
-
-La regla práctica es esta:
-
-- una mención se conserva como señal clínica útil si no está en contexto histórico, hipotético ni familiar;
-- una mención afirmada se conserva como evidencia válida;
-- una mención negada solo se conserva si la negación es atribuible al paciente;
-- la negación de plantilla, del médico o de una fórmula administrativa se descarta como señal diagnóstica útil.
-
-De esa política salen dos piezas centrales del pipeline:
-
-- `has_clinical_signal = 1`: la nota conserva al menos una entidad válida para la tarea diferencial;
-- `niega_*`: la negación del paciente se preserva como señal clínica específica y no como simple ausencia de fenómeno.
-
-Esto debe leerse correctamente: no es una decisión diagnóstica final, sino una política de limpieza y normalización del EHR para evitar que el modelo aprenda ruido documental como si fuera evidencia clínica.
-
-## Separación clave: standalone vs backbone del híbrido
-El proyecto separa dos decisiones que no deben mezclarse:
-
-- `04c` decide el mejor transformer standalone en `dev`.
-- `scripts/comparar_backbones_hibrido.py` decide qué backbone contextual conviene dentro del híbrido manteniendo fijo el resto.
-
-En la corrida vigente:
-- mejor transformer standalone: `ROBERTA_CLINICAL`
-- mejor backbone del híbrido: `BETO`
-
-Por eso `06` usa `BETO` por defecto para construir `ctx_<backbone>_*` en el híbrido tabular. El ensamble vigente, en cambio, usa `ROBERTA_CLINICAL` como rama contextual porque combina predicciones probabilísticas de ramas independientes. Si se quiere heredar explícitamente la selección de `04c` dentro de `06`, debe indicarse `FE_TEXT_BACKBONE=auto`.
-
-## Criterio de evaluación del cierre dev
-El cierre en `dev` no se decide por una sola métrica. La decisión combina:
-
-- `macro_f1`;
-- `balanced_accuracy`;
-- F1 por clase;
-- estabilidad entre seeds;
-- parsimonia;
-- auditabilidad clínica;
-- penalización de riesgos metodológicos;
-- consistencia entre backbone, barrido, freeze y análisis de errores.
-
-## Estado actual de la fase
-El repositorio completó el cierre metodológico en `dev` y la evaluación final única en `test` con el ensamble por ramas:
-
-- selección y comparación de líneas base;
-- backbone del híbrido resuelto;
-- híbrido tabular reejecutado como comparativo 512;
-- ensamble por ramas formalizado;
-- freeze léxico generado;
-- análisis de errores del ensamble ejecutado;
-- `test` ejecutado una sola vez mediante `10_cierre_final_test_ensamble.ipynb`.
-
-Queda pendiente la integración final de xAI/explicabilidad como análisis pos-hoc. El resultado de `test` permanece congelado y no habilita reajustes de modelos, pesos, reglas ni umbral.
-
-## Validación secundaria en `dev`
-Antes de abrir `test`, la auditoría secundaria añadió controles de robustez sobre los artefactos congelados en `dev`:
-
-| Modelo | Macro F1 note-level | Macro F1 patient-weighted | Macro F1 patient-aggregated | AP ansiedad |
+| Conjunto denoised | Pacientes | Notas | Ansiedad | Depresión |
 |---|---:|---:|---:|---:|
-| `TF-IDF` | `0.740564` | `0.751384` | `0.887500` | `0.725725` |
-| `ROBERTA_CLINICAL` | `0.741078` | `0.768400` | `0.828571` | `0.655111` |
-| híbrido final `py|XGB` | `0.728894` | `0.692788` | `0.750000` | `0.589144` |
+| Entrenamiento | 54 | 1107 | 358 | 749 |
+| Validación | 18 | 343 | 100 | 243 |
+| Prueba | 18 | 385 | 98 | 287 |
+| Total | 90 | 1835 | 556 | 1279 |
 
-Estos controles no reabren la selección del modelo. Su función es reforzar la interpretación: TF-IDF y ROBERTA_CLINICAL son referencias predictivas muy fuertes, mientras que el híbrido retenido se conserva por trazabilidad clínica, parsimonia y valor metodológico dentro de una shortlist heterogénea.
+El EDA completo reside en `01_datos_eda_limpieza.ipynb`, sin scripts externos de EDA: universo global, clases, notas por paciente, sexo y edad, longitudes, tokens, vocabulario, duplicados, retención y comparación por partición y clase. Genera tablas, figuras y reporte local. Su ejecución completa necesita las salidas de `02`/`03` y el tokenizer local; limpieza inicial y EDA completo tienen requisitos distintos. Véase [Guía de ejecución](GUIA_EJECUCION.md).
 
-También se ejecutó una sensibilidad con `sample_weight = 1 / n_notas_paciente_train`. El efecto fue negativo en `dev`, por lo que no se adopta como nuevo cierre ni como reemplazo del modelo congelado.
+## Denoising y señal útil
+`03` emplea el perfil `core`, spaCy, medspaCy y la política `utils_shared.keep_entity`. Excluye menciones históricas, hipotéticas o familiares; conserva las afirmadas y las negadas cuando la negación se atribuye al paciente. La negación de plantilla no se considera señal válida.
+
+Una nota se retiene si contiene al menos una entidad aceptada. Puede ser sintomática, terapéutica o contextual: `has_clinical_signal` no demuestra por sí mismo capacidad diferencial ni equivale a validación clínica. Se excluyen 1308 de las 3143 notas (41.62%); el rendimiento corresponde al universo retenido, no a todas las consultas originales.
+
+## Recursos clínico-léxicos y LLM
+La dependencia clínica está versionada como submódulo. Se mantienen las capas y perfiles:
+
+- `Concept_CO`: base histórica; perfil `co`.
+- `Concept_Core`: núcleo depurado; perfil `core`.
+- `Concept_PY`: adaptación paraguaya, sumada a Core en el perfil `py`.
+
+Los diccionarios contienen patrones asociados a categorías clínicas, no etiquetas de diagnóstico. El LLM apoyó la revisión léxica y, en una operación distinta, normalizó menciones a una ontología cerrada. No clasifica ansiedad/depresión ni crea libremente categorías nuevas.
+
+La extracción conservada mediante Google GenAI API cubre las 1835 notas, incluidas las de prueba, usando `row_id` y texto, sin suministrar la etiqueta ni el identificador del paciente como campos. Aplicar un extractor definido a prueba no equivale a entrenar con sus etiquetas. La trazabilidad no demuestra qué notas se consultaron al construir inicialmente el léxico ni liga inequívocamente toda la configuración a la ejecución efectiva. El modelo efectivo no debe inferirse solo de su valor predeterminado.
+
+En `06`, la unión binaria de síntomas es `feat_X = max(rule_X, llm_X)`; las negaciones se representan de forma diferenciada y `rule_medication_*` permanece como evidencia terapéutica separada. Esta fusión de menciones no es el ensamble final de probabilidades.
+
+## Modelos y selección
+Todos los comparadores principales usan el mismo universo denoised:
+
+1. `04a`: Dummy como referencia trivial.
+2. `04b`: TF-IDF de caracteres + LinearSVC balanceado, ajustado solo con entrenamiento. Es una referencia para matrices dispersas de alta dimensionalidad, no el ganador de una búsqueda entre clasificadores léxicos.
+3. `04c`: Transformers standalone ajustados para la tarea, comparados en `dev`.
+4. `06`/`07`: integración temprana de variables clínico-léxicas, sentimiento y embeddings BETO, seguida de RF/XGBoost. El comparador completo 512 tiene 958 variables, distinto de la variante histórica reducida de 861.
+5. Ensamble: integración tardía de probabilidades de tres modelos independientes, no de sus matrices de features.
+
+La comparación controlada de backbone retuvo BETO en la variante de 861 variables (Macro-F1 en `dev`: 0.728894 frente a 0.724315 con RoBERTa clínico). No contradice la selección de RoBERTa como mejor standalone ni demuestra la misma diferencia en la matriz completa. `06` usa BETO por defecto; `FE_TEXT_BACKBONE=auto` adopta explícitamente la selección standalone.
+
+`09b` conserva la selección multicriterio histórica del híbrido y su shortlist; `09` conserva el análisis de errores asociado. No eligieron los pesos vigentes. El recongelado del 6 de junio seleccionó por Macro-F1 en `dev` la mejor de 231 ternas de pesos, en pasos de 0.05:
+
+- RoBERTa clínico ajustado, `max_length=512`: peso 0.65.
+- Random Forest `py` (Core + PY), sin LLM: peso 0.15.
+- Random Forest `core` con unión de síntomas de reglas y LLM: peso 0.20.
+
+La decisión usa el máximo de las probabilidades combinadas, sin reajustar un umbral en prueba. El cierre anterior `0.80 / 0.10 / 0.10` es histórico: no se conservó el checkpoint exacto que lo reprodujera.
+
+## Evaluación y alcance
+`10_cierre_final_test_ensamble.ipynb` verifica reproducción contextual en `dev`, alineación por `row_id` y orden de clases, y ejecuta inferencia `predict-only` con modelos y pesos congelados. El cierre final del ensamble del 6 de junio no reentrenó ni reajustó. Las comparaciones posteriores son distintas de esa ejecución: TF-IDF se reprodujo ajustando solo en entrenamiento y el híbrido se evaluó cargando su modelo conservado.
+
+Los [valores de referencia](REVALIDACION_RESULTADOS_REFERENCIA.md) reúnen resultados y procedencia. El ensamble fue el mejor en desarrollo (Macro-F1 0.757017), pero TF-IDF + LinearSVC obtuvo el mayor valor puntual en prueba (0.584478 frente a 0.555807). No se demuestra superioridad estadística ni aporte causal aislado del léxico paraguayo.
+
+Se priorizan Macro-F1, balanced accuracy y F1 por clase. El bootstrap por paciente estima incertidumbre del rendimiento del ensamble, no de la diferencia entre modelos. Las métricas por paciente y SHAP de `09c` corresponden a configuraciones históricas en `dev`, no a explicabilidad del ensamble final.
+
+El EDA y las auditorías posteriores no habilitan selección con prueba. La revisión clínica de retenidas/excluidas y la explicabilidad final siguen pendientes. Véanse [Limitaciones](LIMITACIONES.md) y [Estrategia de validación](ESTRATEGIA_VALIDACION.md).

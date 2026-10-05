@@ -13,28 +13,35 @@ Su objetivo es evitar ambigüedades del tipo:
 El repositorio separa dos planos:
 
 - **documentación pública versionada**: vive en `README.md`, `docs/`, `notebooks/README.md` y `scripts/README.md`;
-- **artefactos locales regenerables**: viven en `data/processed/` y `data/outputs/`.
+- **artefactos locales restringidos**: viven en `data/` y `reports/`; los modelos y extracciones originales deben conservarse para reproducción exacta.
 
 Los notebooks y scripts deben trabajar, cuando exista, con punteros `latest` o con artefactos explícitamente resueltos por compatibilidad. No deben depender de recordar un timestamp manual.
 
 ## Regla de oro
-Cuando exista un puntero `latest.json`, ese puntero tiene prioridad sobre inspeccionar carpetas timestamped a mano.
+En operación corriente, resolver `latest.json` por compatibilidad antes de inspeccionar carpetas a mano. Para reproducir una referencia congelada, usar sus identificadores, manifiestos y hashes explícitos: un puntero mutable no tiene prioridad sobre la referencia original.
 
 ## Contrato por etapa
 
-### 01. Limpieza inicial
+### 01. Limpieza inicial y EDA
 Notebook:
 - `notebooks/pipeline/01_datos_eda_limpieza.ipynb`
 
 Entrada principal:
 - `data/ips_raw.csv`
 
+Entradas adicionales del EDA completo:
+- artefactos de `02`/`03`: base, índices, bandera de señal y notas denoised globales y por partición;
+- tokenizer local en `data/checkpoints/roberta_clinical/checkpoint-210`.
+
 Salida principal:
 - `data/ips_clean.csv`
+- `reports/eda_audit_20260619/reporte_auditoria_eda.md`, tablas, figuras y `execution_manifest.json`.
 
 Contrato:
 - `02` no debería volver a consumir `ips_raw.csv` directamente.
 - `ips_clean.csv` es la base documental limpia para el split.
+- el EDA es autocontenido en `01`, sin scripts externos; con solo raw se ejecuta primero la limpieza hasta la sección 5 y se vuelve al EDA tras materializar los insumos posteriores.
+- si la limpieza reproducida difiere del CSV existente, `01` conserva el canónico y exporta un candidato privado; no continúa como si ambos fueran idénticos.
 
 ### 02. Split por paciente
 Notebook:
@@ -72,6 +79,7 @@ Salidas:
 Contrato:
 - `04a`, `04b`, `04c`, `06` y el resto del pipeline principal operan sobre el universo `denoised`.
 - `input_for_gemini.json` es el insumo formal para la extracción semántica acotada del LLM.
+- contiene notas de los tres conjuntos sin suministrar etiquetas al extractor. La aplicación a prueba no permite usar sus salidas para reajustar instrucciones o reglas y mantener la misma evaluación independiente.
 
 ### 04a. Baseline Dummy
 Salida principal:
@@ -284,7 +292,7 @@ Fuentes de verdad:
 - `rubrica_seleccion_modelos.csv`
 
 Contrato:
-- `decision_modelo_final.json` es la fuente de verdad del modelo final congelado en `dev`.
+- `decision_modelo_final.json` es la fuente de verdad del cierre histórico de esta etapa, no del ensamble recongelado ni de sus pesos.
 - `09` debe analizar ese modelo, no el mejor por una heurística propia.
 
 ### 09. Análisis de errores
@@ -293,7 +301,7 @@ Notebook:
 
 Entrada:
 - `decision_modelo_final.json`
-- predicciones del modelo final congelado
+- predicciones del modelo asociado al cierre histórico
 
 Salidas:
 - `data/outputs/error_analysis_<timestamp>/...`
@@ -310,7 +318,7 @@ Script:
 
 Entrada:
 - `decision_modelo_final.json`
-- predicciones del modelo final congelado
+- predicciones del modelo asociado al cierre histórico
 - baselines de `dev`
 - `dataset_base`, `dataset_denoised` y splits denoised
 - `ips_raw.csv` solo para auditoría demográfica descriptiva
@@ -327,7 +335,7 @@ Salidas:
 Contrato:
 - consume artefactos ya congelados en `dev`;
 - no reabre selección de modelo, ontología ni tarea binaria;
-- documenta robustez secundaria antes de abrir `test`.
+- documenta controles de configuraciones históricas en desarrollo; sus métricas y SHAP no describen el ensamble vigente.
 
 ### 10. Revisión clínica externa
 Notebook:
@@ -342,6 +350,14 @@ Contrato:
 - consume artefactos ya cerrados en `dev`;
 - no redefine la shortlist;
 - no reabre entrenamiento ni cierre.
+- genera materiales; no acredita revisión clínica experta completada.
+
+### 10 de pipeline. Cierre final del ensamble
+Notebook: `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb`.
+
+Consume el recongelado explícito `cierre_dev_recongelado_roberta_512_20260606_160946`, los modelos y tokenizer conservados, columnas y pesos `0.65 / 0.15 / 0.20`. Valida reproducción en `dev`, alineación de filas y orden de clases; no reentrena ni reajusta.
+
+La referencia final es `data/outputs/cierre_final_test_ensamble_512_20260606_1640/`, con manifiesto, predicciones por rama, métricas y bootstrap por paciente. No sobrescribirla en comprobaciones posteriores. Las comparaciones posteriores de TF-IDF y del híbrido tienen otra procedencia, descrita en [Revalidación](REVALIDACION_RESULTADOS_REFERENCIA.md).
 
 ## Punteros `latest` relevantes
 Cuando existan, priorizar:

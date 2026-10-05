@@ -1,11 +1,23 @@
 # Guía de ejecución
 
-Esta guía cubre la regeneración ordinaria hasta el cierre en `dev`. La evaluación final en `test` ya fue ejecutada una sola vez y no forma parte de una regeneración rutinaria.
+Esta guía cubre la regeneración ordinaria del desarrollo. El cierre final del ensamble en `test` ya se ejecutó; es distinto de las comparaciones posteriores de TF-IDF y del híbrido, y no forma parte de una regeneración rutinaria.
 
 No incluye:
 - notebook final de xAI/explicabilidad (pendiente; fuera del cierre técnico actual).
 
-El procedimiento predict-only y el manifiesto del único cierre de `test` están documentados en `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb`. No debe reejecutarse para exploración ni selección.
+El procedimiento predict-only está documentado en `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb`. No debe reejecutarse para exploración ni selección. Una reproducción exacta necesita los artefactos congelados; regenerar entrenamientos no garantiza recuperar ese cierre.
+
+## Requisitos de 01: limpieza y EDA
+La implementación actual de `01` reúne dos fases con requisitos diferentes:
+
+1. Secciones 1 a 5: carga, limpieza y exportación de `ips_clean.csv` desde `ips_raw.csv`.
+2. Desde la sección 6: EDA completo del universo denoised; necesita `dataset_base.csv`, índices y CSV denoised por partición, `dataset_denoised.csv` y `dataset_with_clinical_signal_flag.csv`, producidos por `02`/`03`.
+
+La longitud en tokens requiere además el tokenizer local en `data/checkpoints/roberta_clinical/checkpoint-210`. No sustituirlo silenciosamente por otro tokenizer al comparar cifras.
+
+En un arranque con solo el corpus original, ejecutar interactivamente la limpieza hasta la sección 5, ejecutar `02` y `03`, disponer del tokenizer esperado y volver a ejecutar `01` completo. El orquestador actual no implementa automáticamente esas dos pasadas: ejecutar `01` completo al inicio sin los insumos posteriores falla. Este requisito no cambia el orden metodológico limpieza, partición y filtro.
+
+Si `ips_clean.csv` existe y difiere de la limpieza reproducida, `01` no lo sobrescribe: deja un candidato en el área privada del EDA. Revisar esa discrepancia antes de encadenar etapas. El reporte, las tablas y las figuras se generan dentro de `01`, sin scripts de EDA, en `reports/eda_audit_20260619/`.
 
 ## Opción reproducible por contenedor
 
@@ -72,6 +84,7 @@ Para entender el contenedor correctamente:
 
 2. **Obligatorios solo si se corre el pipeline desde 01**
    - `data/ips_raw.csv` disponible en el volumen local montado.
+   - para ejecutar `01` completo, los artefactos y tokenizer descritos arriba.
 
 3. **Obligatorios solo si se ejecuta extracción LLM**
    - `.env.docker` con `GEMINI_API_KEY`, o variable equivalente pasada al contenedor.
@@ -103,7 +116,7 @@ Eso significa:
 
 En otras palabras: Docker congela el **entorno de ejecución**, no los datos clínicos ni todos los artefactos pesados externos por defecto.
 
-## Opción recomendada: script único
+## Orquestador de desarrollo (con insumos disponibles)
 
 ```bash
 python scripts/regenerar_pipeline_desarrollo.py --dry-run
@@ -135,6 +148,8 @@ python scripts/regenerar_pipeline_desarrollo.py \
 
 Para ejecutar limpieza real, quitar `--dry-run`.
 
+Antes de limpiar, respaldar modelos, checkpoints, extracción LLM, reglas e índices de referencia. No todos pueden recuperarse únicamente desde `ips_raw.csv`; una llamada remota nueva o un entrenamiento nuevo no reproduce necesariamente el experimento original.
+
 ## Salidas de la regeneración
 Cada corrida deja:
 - `data/outputs/regeneracion_desarrollo_<timestamp>/resumen_regeneracion.md`
@@ -160,15 +175,7 @@ Cada corrida deja:
 16. `09_analisis_errores_hibrido`
 
 ## Cierre dev histórico con ensamble 512
-El cierre de mayo queda preservado como histórico y puede regenerarse con:
-
-```bash
-CIERRE_DEV_ENSAMBLE_RUN_ID=cierre_dev_ensamble_512_20260512_155606 \
-jupyter nbconvert --to notebook --execute --inplace notebooks/pipeline/08_resultados_hibrido_vs_lineas_base.ipynb
-
-CIERRE_DEV_ENSAMBLE_RUN_ID=cierre_dev_ensamble_512_20260512_155606 \
-jupyter nbconvert --to notebook --execute --inplace notebooks/analysis/09_analisis_errores_hibrido.ipynb
-```
+El cierre de mayo se preserva como histórico; sus tablas y predicciones pueden consultarse, pero no se encontró el checkpoint contextual exacto que lo reproduzca. No reejecutar usando su identificador para sobrescribir la evidencia original.
 
 Artefactos principales:
 - `data/outputs/cierre_dev_ensamble_512_20260512_155606/manifest.json`
@@ -191,26 +198,20 @@ El cierre vigente se apoya en:
 Para validar en `dev` sin abrir `test`:
 
 ```bash
-CIERRE_FINAL_RUN_ID=cierre_final_pretest_dev_reprocheck_refreeze_20260606_1620 \
+CIERRE_FINAL_RUN_ID=verificacion_dev_20261005 \
 FINAL_EVAL_SPLIT=dev \
 FINAL_BOOTSTRAP_N=0 \
-jupyter nbconvert --to notebook --execute --inplace notebooks/pipeline/10_cierre_final_test_ensamble.ipynb
+jupyter nbconvert --to notebook --execute \
+  --output-dir=/tmp --output=verificacion_cierre_dev.ipynb \
+  notebooks/pipeline/10_cierre_final_test_ensamble.ipynb
 ```
 
-La apertura final de `test` ya fue realizada una vez con:
+Usar un `CIERRE_FINAL_RUN_ID` nuevo en cada comprobación, conservar el entorno compatible con los modelos serializados y comparar contra la referencia explícita, no contra un `latest` posterior. El ejemplo no sobrescribe el notebook versionado ni los directorios originales.
 
-```bash
-CIERRE_FINAL_RUN_ID=cierre_final_test_ensamble_512_20260606_1640 \
-FINAL_EVAL_SPLIT=test \
-FINAL_PERMITIR_TEST=1 \
-FINAL_DEV_REPRO_OK=1 \
-jupyter nbconvert --to notebook --execute --inplace notebooks/pipeline/10_cierre_final_test_ensamble.ipynb
-```
+La ejecución final de prueba quedó en `cierre_final_test_ensamble_512_20260606_1640`. El notebook protege ese modo mediante `FINAL_PERMITIR_TEST` y `FINAL_DEV_REPRO_OK`; estas variables son confirmaciones operativas, no sustituyen la evidencia de reproducción. No repetirlo para reajustar modelos, pesos ni reglas. Las corridas `max_length=256` son sensibilidad no adoptada.
 
-No repetir esta ejecución para reajustar modelos, pesos ni reglas. Las corridas `max_length=256` quedan como sensibilidad no adoptada.
-
-## Control secundario posterior
-La auditoría secundaria pre-`test` se ejecuta después del cierre y del análisis de errores:
+## Control secundario histórico en desarrollo
+La auditoría secundaria consume el cierre histórico y su análisis de errores:
 
 ```bash
 python scripts/audit/generar_auditoria_validacion_secundaria_dev.py
@@ -236,5 +237,7 @@ Cadena operativa recomendada:
 
 Esto deja el flujo notebook-only alineado con la regeneración reproducible del proyecto.
 
+La resolución automática permite trabajar con nuevas corridas; no convierte los resultados de `09b` en el recongelado actual ni recupera los pesos vigentes del ensamble. Para eso consultar [Revalidación y procedencia](REVALIDACION_RESULTADOS_REFERENCIA.md).
+
 ## Nota metodológica
-La regeneración está diseñada para reproducir el estado de desarrollo y su documentación de cierre en `dev`, sin mezclar decisiones de la fase final.
+La regeneración reconstruye el flujo de desarrollo sin mezclar decisiones de la fase final. Reusar la extracción LLM conservada permite mantener sus variables; llamar de nuevo a la API requiere autorización/resguardo y crea otra evidencia. `data/` y `reports/` son material local excluido de publicación.

@@ -1,58 +1,46 @@
-# Decisiones Metodológicas Clave
+# Decisiones metodológicas clave
 
-## Decisiones ya cerradas
-- tarea actual: clasificación probabilística entre `ansiedad` y `depresion`;
-- `comorbilidad` no se modela como tercera clase ni como salida multilabel en esta versión;
-- la interpretación vigente del etiquetado es a nivel `texto/consulta`;
-- `dev` se usa para desarrollo, comparación y selección;
-- `test` fue ejecutado una sola vez como evaluación hold-out final;
-- baseline fuerte simple: `TF-IDF`;
-- mejor transformer standalone actual: `ROBERTA_CLINICAL`;
-- mejor backbone contextual del híbrido actual: `BETO`;
-- mejor híbrido tabular alineado a 512: `py XGB`;
-- mejor modelo global actual en `dev`: ensamble weighted soft recongelado `ROBERTA_CLINICAL 512 + simbólico py RF + simbólico core RF late fusion LLM`;
-- pesos vigentes del ensamble recongelado: `0.65 / 0.15 / 0.20`;
-- cierre dev anterior con pesos `0.80 / 0.10 / 0.10`: conservado como histórico porque no se encontró el checkpoint exacto de `ROBERTA_CLINICAL 512` que lo reproduzca;
-- cierre híbrido tabular previo: conservado como referencia histórica/comparativa;
-- `max_length=512` es la condición principal del cierre actual; `max_length=256` queda como sensibilidad no adoptada;
-- `mejor transformer standalone` y `mejor backbone del híbrido` no coinciden y no deben mezclarse conceptualmente.
+## Decisiones cerradas
+- Clasificación por nota entre `ansiedad` y `depresion`, sin controles ni comorbilidad como tercera clase.
+- Partición por paciente anterior al denoising; universo comparativo principal de 1835 notas retenidas.
+- `dev` para comparación y selección; `test` para evaluación de configuraciones definidas, sin reajuste posterior.
+- TF-IDF + LinearSVC como referencia léxica, no como clasificador elegido mediante búsqueda exhaustiva.
+- RoBERTa clínico como mejor Transformer standalone del cierre 512.
+- BETO como backbone del híbrido, retenido por comparación controlada en una variante de 861 variables.
+- Híbrido completo PY XGBoost 512 (958 variables) como comparador de integración temprana, distinto del histórico reducido.
+- Ensamble de integración tardía seleccionado en desarrollo: contextual RoBERTa clínico + RF `py` sin LLM + RF `core` con LLM.
+- Pesos vigentes `0.65 / 0.15 / 0.20`, seleccionados por Macro-F1 entre 231 ternas en `dev`.
+- `max_length=512` como condición principal; `256` es sensibilidad no adoptada.
+- Pesos históricos `0.80 / 0.10 / 0.10` no vigentes: checkpoint contextual exacto no recuperado.
 
-## Convención léxica vigente
-- capas:
-  - `Concept_CO` = baseline histórico;
-  - `Concept_Core` = núcleo clínico depurado;
-  - `Concept_PY` = capa regional paraguaya;
-- perfiles:
-  - `co` = `Concept_CO`
-  - `core` = `Concept_Core`
-  - `py` = `Concept_Core` + `Concept_PY`
+## Convención léxica y fusión
+- `co = Concept_CO`: baseline histórico.
+- `core = Concept_Core`: núcleo clínico depurado.
+- `py = Concept_Core + Concept_PY`: núcleo más adaptación paraguaya.
+- `feat_X = max(rule_X, llm_X)`: unión binaria de síntomas, no combinación de predicciones diagnósticas.
+- `rule_medication_*`: evidencia terapéutica separada.
+- LLM limitado a revisión léxica y normalización dentro de la ontología; no clasificación clínica directa.
 
-## Estado operativo
-- estado de `test`: `TEST_EJECUTADO_UNA_VEZ`;
-- carpeta final de `test`: `data/outputs/cierre_final_test_ensamble_512_20260606_1640/`;
-- estado de xAI: fuera del cierre técnico actual; integración formal final pendiente;
-- frente formal de validación clínica: `ACTIVO`;
-- estado de la fase: `CIERRE_TEST_EJECUTADO_XAI_PENDIENTE`.
+La extracción conservada se aplica a entrenamiento, desarrollo y prueba sin suministrar etiquetas. No se demuestra procedencia individual completa de cada término local ni independencia inicial de su construcción respecto del texto posteriormente asignado a prueba.
 
-## Validación secundaria incorporada en `dev`
-- la evaluación principal sigue siendo a nivel nota, pero se reportan lecturas secundarias `patient-weighted` y `patient-aggregated`;
-- en el híbrido final, `macro_f1` pasa de `0.728894` a nivel nota a `0.692788` en lectura `patient-weighted`;
-- TF-IDF conserva el mejor comportamiento bruto entre las referencias evaluadas, incluyendo `patient-weighted`, `patient-aggregated` y AP para `ansiedad`;
-- la sensibilidad de entrenamiento con `sample_weight = 1 / n_notas_paciente_train` fue negativa en `dev`, por lo que no se adopta como nuevo cierre;
-- la auditoría SHAP mínima muestra predominio global de `ctx_beto_*` sobre `rule_*`; las reglas quedan como señal auditable, no como explicación dominante del XGB final.
+## Cierres que no deben confundirse
+`09b` conserva el cierre multicriterio histórico y su shortlist; `09` interpreta sus errores. La rúbrica histórica no seleccionó los pesos vigentes del ensamble.
 
-## Alcance y límites
-- el grupo de control explícito queda fuera del alcance actual;
-- las notas administrativas o de reposición conservan sentido asistencial, pero pueden filtrarse cuando no aportan señal clínica útil para esta tarea diferencial;
-- el corpus combina estilos estructurados y narrativos, con abreviaturas, comillas, marcas de duda y convenciones locales que deben considerarse en la lectura clínica;
-- el ensamble obtuvo el mayor Macro-F1 en `dev`, pero TF-IDF + LinearSVC obtuvo el mayor valor puntual en `test`; no corresponde presentar al ensamble ni al híbrido como ganador global de la evaluación final.
+El recongelado reproducible del 6 de junio precedió al cierre final `predict-only` de `10`. Las comparaciones posteriores de TF-IDF y del híbrido no forman parte de esa ejecución: se reprodujo TF-IDF con entrenamiento solo en train y se hizo inferencia del híbrido conservado.
 
-## Fuentes canónicas
-- cierre formal vigente: `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/manifest.json`
-- reporte de cierre vigente: `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/reporte_cierre_dev_recongelado.md`
-- cierre dev de mayo preservado como histórico: `data/outputs/cierre_dev_ensamble_512_20260512_155606/manifest.json`
-- cierre histórico tabular: `notebooks/pipeline/09b_cierre_modelos_dev.ipynb` o `scripts/cerrar_modelos_dev.py`
-- comparación backbone válida: `data/outputs/comparacion_backbones_hibrido_latest.json`
-- selección transformer vigente: `data/outputs/transformer_baseline_selection_latest.json`
-- auditoría de `test`: `data/outputs/auditoria_test_*.md`
-- dossier IPS curado vigente: `data/outputs/dossier_ips_curado_latest.json`
+El ensamble fue el mejor Macro-F1 en desarrollo, pero TF-IDF obtuvo el mayor valor puntual en prueba. No presentar al ensamble ni al híbrido como ganador de la evaluación final ni afirmar superioridad estadística sin una comparación pareada.
+
+## Análisis secundarios y pendientes
+- `01` contiene todo el EDA global y por partición, sin scripts de EDA; su fase completa requiere artefactos posteriores.
+- `05` documenta cobertura `co/core/py` en desarrollo, no una auditoría equivalente de cobertura en prueba.
+- `09c` conserva métricas por paciente, sensibilidad de entrenamiento y SHAP de configuraciones históricas; no reabre selección.
+- Las métricas aisladas de las ramas en prueba no son una ablación causal de PY o LLM.
+- Preparar materiales clínicos no acredita revisión experta completada; la correctitud del denoising sigue pendiente de validación.
+- La explicabilidad del ensamble final sigue pendiente; SHAP del XGBoost histórico no la reemplaza.
+
+## Referencias congeladas
+- Desarrollo: `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/`.
+- Prueba: `data/outputs/cierre_final_test_ensamble_512_20260606_1640/`.
+- Mayo histórico: `data/outputs/cierre_dev_ensamble_512_20260512_155606/`.
+
+Consultar [Revalidación](REVALIDACION_RESULTADOS_REFERENCIA.md) para cifras y procedencia. Los manifiestos e identificadores explícitos definen el cierre; los punteros `latest` pueden cambiar y no sustituyen esa identidad. No publicar artefactos clínicos ni documentación interna con el código.

@@ -1,172 +1,109 @@
 # Fenotipado Psiquiátrico Paraguay
 
-Repositorio de investigación para clasificación probabilística de notas clínicas psiquiátricas del IPS (Paraguay).
+Repositorio de investigación para clasificación de notas clínicas psiquiátricas del IPS (Paraguay) entre `ansiedad` y `depresion`. La unidad principal es la nota; la partición separa pacientes. No es un sistema de diagnóstico autónomo ni de screening y no incluye controles ni una tercera clase de comorbilidad.
 
-## Objetivo actual
-- Tarea supervisada binaria: `ansiedad` vs `depresion`.
-- En esta fase no existe clase explícita de `comorbilidad`.
-- La interpretación vigente del etiquetado es a nivel `texto/consulta`.
-- El grupo de control queda fuera del alcance actual y pasa a trabajo futuro.
-- Familias modeladas: líneas base textuales, Transformers standalone, híbrido tabular y ensamble por ramas.
-- Cierre vigente: ensamble weighted soft recongelado con `ROBERTA_CLINICAL max_length=512` + rama simbólica regionalizada `py RF` + rama simbólica core con late fusion LLM.
-- El cierre híbrido tabular previo queda conservado como referencia histórica/comparativa, no como mejor modelo global vigente.
+## Estado del experimento
+El cierre reproducible vigente es el ensamble ponderado de probabilidades:
 
-## Cierre vigente
-- Cierre `dev` reproducible: `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/`.
-- Cierre final en `test`: `data/outputs/cierre_final_test_ensamble_512_20260606_1640/`.
-- Modelo seleccionado en `dev`: ensamble weighted soft recongelado `ROBERTA_CLINICAL 512 + simbólico py RF + simbólico core RF late fusion LLM`. En `test`, TF-IDF + LinearSVC obtuvo el mayor Macro-F1 puntual entre los comparadores evaluados.
-- Pesos vigentes: `0.65 / 0.15 / 0.20`.
-- Métricas principales en `dev`: macro-F1 `0.757017`, balanced accuracy `0.765638`, weighted-F1 `0.796002`.
-- Métricas finales en `test`: macro-F1 `0.555807`, balanced accuracy `0.553883`, weighted-F1 `0.671349`.
-- Mejor híbrido tabular alineado a 512: `py XGB`, macro-F1 `0.723387`.
-- `max_length=512` queda como configuración principal del cierre; `max_length=256` queda documentado como sensibilidad no adoptada.
-- `test` fue ejecutado una sola vez como hold-out final; no debe usarse para reajustar pesos, modelos ni reglas.
+- RoBERTa clínico ajustado, `max_length=512`: peso 0.65.
+- Random Forest regionalizado `py` (Core + PY), sin LLM: peso 0.15.
+- Random Forest `core` con unión binaria de síntomas de reglas y LLM: peso 0.20.
 
-## Selección de backbone contextual
-- `04c_linea_base_transformers.ipynb` define explícitamente la comparación de baselines Transformer en `dev` y exporta:
-  - `data/outputs/transformer_baseline_selection_<timestamp>.json`
-  - `data/outputs/transformer_baseline_selection_latest.json`
-- `06_ingenieria_features_hibridas.ipynb` usa `BETO` por defecto para el bloque contextual del híbrido, porque la comparación controlada de backbone vigente retuvo `BETO` dentro de la arquitectura híbrida.
-- El ensamble vigente usa `ROBERTA_CLINICAL` como rama contextual porque toma las probabilidades del mejor Transformer standalone en la condición de cierre `max_length=512`.
-- Si se quiere heredar explícitamente la selección standalone de `04c`, debe indicarse `FE_TEXT_BACKBONE=auto`.
-- `04c` y la comparación controlada de backbone responden a preguntas distintas:
-  - `04c` decide el mejor transformer standalone;
-  - la comparación controlada decide el mejor backbone del híbrido.
+Los pesos se seleccionaron en desarrollo entre 231 combinaciones. El notebook `10` comprobó la reproducción en `dev` y ejecutó inferencia final `predict-only` en prueba el 6 de junio de 2026, sin reentrenar ni reajustar. La configuración de mayo con pesos `0.80 / 0.10 / 0.10` es histórica: no se recuperó su checkpoint contextual exacto.
 
-Cadena de trazabilidad (sin saltos):
-`04c (selección baseline Transformer)` -> `06 (features con backbone configurable)` -> `07 (entrenamiento con metadata de backbone)` -> `scripts/comparar_backbones_hibrido.py` -> `scripts/audit/registrar_artefactos_backbone.py` -> `09b (cierre formal en dev)`.
+| Configuración | Macro-F1 en desarrollo | Macro-F1 en prueba |
+|---|---:|---:|
+| Ensamble 512 recongelado | 0.757017 | 0.555807 |
+| RoBERTa clínico 512 aislado | 0.747232 | 0.540702 |
+| TF-IDF + LinearSVC | 0.740564 | 0.584478 |
+| Híbrido completo PY XGBoost 512 | 0.723387 | 0.506520 |
 
-## Estado metodológico actual
-- Selección y ablación cerradas en `dev`.
-- `test` ejecutado una sola vez como evaluación hold-out final mediante el notebook `10`.
-- Freeze léxico preliminar generado.
-- Cierre formal de selección de modelo en `dev` actualizado al ensamble por ramas con `max_length=512`.
-- La revisión clínica externa queda como fase secundaria opcional, separada del cierre experimental principal.
-- Queda pendiente la integración final de xAI/explicabilidad como análisis pos-hoc, fuera del cierre técnico.
+El ensamble fue el mejor en desarrollo; TF-IDF + LinearSVC obtuvo el mayor valor puntual en prueba. TF-IDF y el híbrido se compararon posteriormente mediante ajuste solo en entrenamiento e inferencia del modelo conservado, respectivamente. No todas las cifras proceden de la ejecución final del ensamble. No se usa prueba para cambiar reglas, modelos, pesos o umbrales.
 
-## Dependencia clínica versionada
-- `Spanish_Psych_Phenotyping_PY/` es un submódulo versionado del proyecto.
-- Allí vive la base rule-based clínica que soporta extracción, negación, patrones y parte de la trazabilidad metodológica.
-- No debe tratarse como ruido del árbol ni como duplicación accidental.
-- En un clon limpio del repositorio conviene inicializarlo con:
-  - `git submodule update --init --recursive`
-- La documentación de ese submódulo se considera dependencia técnica, no reemplazo de la documentación principal de este repositorio.
+Resultados de las ramas, métricas por clase, matriz de confusión y procedencia: [Revalidación y valores de referencia](docs/REVALIDACION_RESULTADOS_REFERENCIA.md). El valor puntual no demuestra superioridad estadística. La explicabilidad del ensamble y la revisión clínica completa siguen pendientes; materiales de revisión y SHAP del híbrido histórico no equivalen a esas validaciones.
 
-## Repositorio público y reproducibilidad
-- El contenido de `data/` no forma parte del repositorio público; allí viven artefactos locales regenerables.
-- La información metodológica pública debe quedar en los `.md` versionados dentro de `docs/`.
-- Cuando existan artefactos locales relevantes, se priorizan punteros estables `latest` en `data/outputs/` antes que carpetas con timestamp fijo.
-- Para regenerar el flujo experimental principal:
-  - `python scripts/regenerar_pipeline_desarrollo.py --dry-run`
-  - `python scripts/regenerar_pipeline_desarrollo.py --incluir-comparacion-backbones`
-- Para regenerar la auditoría secundaria pre-`test` en `dev`:
-  - `python scripts/audit/generar_auditoria_validacion_secundaria_dev.py`
+## Datos y EDA
+El flujo conserva `3155 -> 3143 -> 1835` notas: original, base limpia y denoised, con 90 pacientes. El universo denoised contiene 556 notas de ansiedad y 1279 de depresión.
 
-## Reglas de control experimental
-- Split obligatorio: `patient-level split`.
-- Regla de `late fusion` congelada: `feat_X = max(rule_X, llm_X)`.
-- Recursos léxicos congelados para trazabilidad:
-  - `Concept_CO` (baseline histórico),
-  - `Concept_Core` (núcleo clínico depurado),
-  - `Concept_PY` (adaptación regional paraguaya).
-- Perfiles experimentales:
-  - `co` = `Concept_CO`
-  - `core` = `Concept_Core`
-  - `py` = `Concept_Core` + `Concept_PY`
+| Conjunto denoised | Pacientes | Notas |
+|---|---:|---:|
+| Entrenamiento | 54 | 1107 |
+| Validación | 18 | 343 |
+| Prueba | 18 | 385 |
+
+Todo el EDA está en [01_datos_eda_limpieza.ipynb](notebooks/pipeline/01_datos_eda_limpieza.ipynb): distribución global y por partición, clases, consultas por paciente, sexo, edad con histogramas e intervalos por clase, longitudes, tokens, vocabulario, duplicados, retención y truncamiento potencial. Genera el reporte y sus recursos sin scripts de EDA.
+
+Su análisis principal usa denoised y contrasta la retención con la base limpia. Excluir notas sin entidades aceptadas no prueba ausencia de información clínica ni mejora causal del rendimiento. La partición por paciente tampoco elimina textos idénticos entre conjuntos. Véase [Limitaciones](docs/LIMITACIONES.md).
+
+La ejecución completa de `01` requiere artefactos de `02`/`03` y el tokenizer local de RoBERTa. En una primera ejecución se prepara primero la limpieza y se vuelve al EDA cuando existen esos insumos; el detalle está en la [Guía de ejecución](docs/GUIA_EJECUCION.md).
+
+## Recursos clínicos y LLM
+`Spanish_Psych_Phenotyping_PY/` es un submódulo versionado, no contenido accidental del árbol. Inicializarlo en un clon limpio:
+
+```bash
+git submodule update --init --recursive
+```
+
+Se mantienen las capas y perfiles congelados:
+
+- `Concept_CO`: base histórica; `co = Concept_CO`.
+- `Concept_Core`: núcleo depurado; `core = Concept_Core`.
+- `Concept_PY`: adaptación regional; `py = Concept_Core + Concept_PY`.
+
+El denoising emplea `core` y una política explícita de aseveración. El LLM apoya revisión léxica y normalización semántica de síntomas dentro de categorías definidas; no clasifica clínicamente ni expande libremente la ontología. La integración sintomática es `feat_X = max(rule_X, llm_X)`; `rule_medication_*` conserva evidencia terapéutica separada.
+
+La extracción conservada incluye las notas de los tres conjuntos, sin proporcionar etiquetas de referencia. Aplicar esa transformación a prueba es distinto de usarla para selección. Su trazabilidad y el resguardo del uso de una API externa se delimitan en [Metodología](docs/METODOLOGIA.md) y [Limitaciones](docs/LIMITACIONES.md).
 
 ## Flujo experimental principal
-1. `notebooks/pipeline/01_datos_eda_limpieza.ipynb`
-2. `notebooks/pipeline/02_patient_level_split.ipynb`
-3. `notebooks/pipeline/03_denoising_reglas_core.ipynb`
-4. `notebooks/pipeline/04a_linea_base_dummy.ipynb`
-5. `notebooks/pipeline/04b_linea_base_tfidf.ipynb`
-6. `notebooks/pipeline/04c_linea_base_transformers.ipynb`
-7. `notebooks/analysis/05_brecha_lexica_co_core_py.ipynb`
-8. `notebooks/pipeline/06_ingenieria_features_hibridas.ipynb`
-9. `notebooks/pipeline/07_entrenamiento_modelos_hibridos.ipynb`
-10. `scripts/comparar_backbones_hibrido.py` (comparación controlada en `dev`)
-11. `notebooks/pipeline/08_resultados_hibrido_vs_lineas_base.ipynb`
-12. `notebooks/pipeline/09b_cierre_modelos_dev.ipynb`
-13. `notebooks/analysis/09_analisis_errores_hibrido.ipynb`
-14. `notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb`
-15. `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb`
+1. [01: limpieza y EDA](notebooks/pipeline/01_datos_eda_limpieza.ipynb).
+2. [02: partición por paciente](notebooks/pipeline/02_patient_level_split.ipynb).
+3. [03: denoising con Core](notebooks/pipeline/03_denoising_reglas_core.ipynb).
+4. [04a: Dummy](notebooks/pipeline/04a_linea_base_dummy.ipynb).
+5. [04b: TF-IDF + LinearSVC](notebooks/pipeline/04b_linea_base_tfidf.ipynb).
+6. [04c: Transformers standalone](notebooks/pipeline/04c_linea_base_transformers.ipynb).
+7. [05: cobertura CO/Core/PY en desarrollo](notebooks/analysis/05_brecha_lexica_co_core_py.ipynb).
+8. [06: matriz híbrida](notebooks/pipeline/06_ingenieria_features_hibridas.ipynb).
+9. [07: RF y XGBoost](notebooks/pipeline/07_entrenamiento_modelos_hibridos.ipynb).
+10. [Comparación controlada de backbone](scripts/comparar_backbones_hibrido.py).
+11. [08: consolidación de resultados](notebooks/pipeline/08_resultados_hibrido_vs_lineas_base.ipynb).
+12. [09b: cierre multicriterio histórico en desarrollo](notebooks/pipeline/09b_cierre_modelos_dev.ipynb).
+13. [09: errores asociados al cierre histórico](notebooks/analysis/09_analisis_errores_hibrido.ipynb).
+14. [10: verificación del recongelado e inferencia final](notebooks/pipeline/10_cierre_final_test_ensamble.ipynb).
 
-## Auditoría secundaria pre-`test`
-- `notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb`
-- `scripts/audit/generar_auditoria_validacion_secundaria_dev.py`
-- Consume artefactos ya congelados en `dev`.
-- No redefine selección de modelo, tarea binaria ni ontología.
-- Reporta Caso C, métricas por paciente, AP/PR-AUC de ansiedad, umbral, `sample_weight`, subgrupos demográficos descriptivos y SHAP por familias.
+Análisis secundarios, fuera de la selección principal:
 
-## Módulo secundario de revisión clínica externa
-- `notebooks/analysis/10_validacion_clinica_ips.ipynb`
-- Consume artefactos ya cerrados en `dev`.
-- No redefine la selección experimental.
-- Prepara material para revisión clínica externa y casos reutilizables para xAI.
+- [09c: auditoría histórica en desarrollo](notebooks/analysis/09c_auditoria_validacion_secundaria_dev.ipynb), con métricas por paciente y SHAP del híbrido reducido.
+- [10 de análisis: materiales para revisión clínica externa](notebooks/analysis/10_validacion_clinica_ips.ipynb), no una validación clínica completada.
 
-## Diferencia entre `dev` y `test`
-- `dev`: comparación de líneas base, barridos, ablaciones y selección del modelo final.
-- `test`: evaluación final única de la configuración congelada.
-- En el estado actual del repositorio, `test` ya fue ejecutado una sola vez mediante `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb`; la fase final de xAI sigue pendiente.
+`04c` selecciona el mejor Transformer standalone (RoBERTa clínico). La comparación controlada del híbrido retuvo BETO en una variante reducida de 861 variables; el híbrido completo 512 tiene 958. Por eso `06` usa BETO por defecto; `FE_TEXT_BACKBONE=auto` hereda explícitamente la selección standalone. TF-IDF no alimenta ese bloque. El ensamble combina predicciones de ramas independientes, no embeddings concatenados.
 
-## Reproducción limpia del desarrollo (hasta estado actual)
-Script principal:
-- `python scripts/regenerar_pipeline_desarrollo.py --dry-run`
-- `python scripts/regenerar_pipeline_desarrollo.py`
-- `python scripts/regenerar_pipeline_desarrollo.py --incluir-comparacion-backbones`
-- `python scripts/audit/generar_auditoria_validacion_secundaria_dev.py`
+## Ejecución y reproducibilidad
+Consultar los requisitos antes de regenerar:
 
-Ruta por contenedor:
-- `bash scripts/docker_build.sh`
-- `bash scripts/docker_up.sh`
-- `CONTAINER_MODE=snapshot bash scripts/docker_up.sh`
-- `bash scripts/docker_smoke_test.sh`
-- `bash scripts/docker_shell.sh`
-- `cp .env.docker.example .env.docker` si vas a usar extracción LLM
+```bash
+python scripts/regenerar_pipeline_desarrollo.py --dry-run
+python scripts/regenerar_pipeline_desarrollo.py --incluir-comparacion-backbones
+```
 
-`docker_up.sh` soporta dos modos:
-- `dev`: monta el repo local y sirve para iterar sin reinstalar dependencias;
-- `snapshot`: usa el código embebido en la imagen y se acerca más a una futura publicación reproducible.
+El orquestador regenera desarrollo; no ejecuta el cierre final de prueba ni garantiza recuperar los artefactos originales. Una reproducción exacta necesita los modelos, checkpoints, extracción LLM, índices y manifiestos conservados. Usar identificadores explícitos para el cierre histórico; `latest` es una comodidad operativa, no una identidad congelada.
 
-El contenedor congela dependencias y utilidades del entorno. Los datos reales siguen montándose localmente y no se empaquetan en la imagen.
+Opción por contenedor:
 
-Con esto se reproduce el flujo de desarrollo y los artefactos de cierre en `dev`. La evaluación final en `test` se ejecuta separadamente con `notebooks/pipeline/10_cierre_final_test_ensamble.ipynb`, sin reentrenar ni reajustar.
-La decisión formal histórica en `dev` queda en `09b`/`08`; el cierre final sobre `test` queda en `10_cierre_final_test_ensamble.ipynb`.
+```bash
+bash scripts/docker_build.sh
+bash scripts/docker_up.sh
+CONTAINER_MODE=snapshot bash scripts/docker_up.sh
+bash scripts/docker_smoke_test.sh
+```
 
-## Reporte general del estado actual
-- Script: `python scripts/reportes/generar_reporte_estado_actual.py --verbose`
-- Objetivo: consolidar el estado vigente del experimento a partir de los artefactos más recientes y consistentes.
-- Salidas:
-  - `data/outputs/reporte_estado_actual_<timestamp>/`
-  - `data/outputs/reporte_estado_actual_latest.json`
+El modo `dev` monta el código local; `snapshot` usa el código de la imagen. Datos, credenciales, checkpoints y descargas externas no quedan preservados automáticamente por Docker.
 
-## Salidas clave
-- Features híbridas: `data/processed/fe_<run_id>_{core,py}/`.
-- Entrenamiento: `data/outputs/train_<run_id>/`.
-- Cierre dev reproducible del ensamble: `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/`.
-- Cierre final en test: `data/outputs/cierre_final_test_ensamble_512_20260606_1640/`.
-- Cierre dev de mayo preservado como histórico: `data/outputs/cierre_dev_ensamble_512_20260512_155606/`.
-- Comparación controlada de backbones: `data/outputs/comparacion_backbones_hibrido_<timestamp>/`.
-- Manifiesto de artefactos de backbone: `data/outputs/backbone_artifacts_manifest_latest.json`.
-- Resultados comparativos: `data/outputs/results_<run_id>/`.
-- Error analysis: `data/outputs/error_analysis_<run_id>/`.
-- Auditoría secundaria pre-`test`: `data/outputs/auditoria_final_caseC_validacion_secundaria/`.
-- Freeze léxico: `data/outputs/freeze_lexico_<timestamp>/`.
-- Cierre de modelos en `dev`: `data/outputs/cierre_modelos_dev_<timestamp>/`.
-- Regeneración: `data/outputs/regeneracion_desarrollo_<timestamp>/`.
+## Salidas y documentación
+`data/` y `reports/` contienen datos y artefactos locales excluidos del repositorio público. No subir textos clínicos, predicciones individuales, credenciales ni informes internos.
 
-## Documentación recomendada
-- `docs/README.md`
-- `docs/GUIA_EJECUCION.md`
-- `docs/METODOLOGIA.md`
-- `docs/METODOLOGIA_PIPELINE_COMPLETA.md`
-- `docs/METODOLOGIA_HIBRIDO_ABLACION_Y_CIERRE.md`
-- `docs/ARTEFACTOS_Y_CONTRATOS.md`
-- `docs/SPANISH_PSYCH_PHENOTYPING_PY.md`
-- `docs/UTILS_SHARED.md`
-- `docs/LIMITACIONES.md`
-- `docs/ESTRATEGIA_VALIDACION.md`
-- `docs/DECISIONES_METODOLOGICAS_CLAVE.md`
-- `docs/REVALIDACION_RESULTADOS_REFERENCIA.md`
-- `notebooks/README.md`
-- `scripts/README.md`
+- EDA: `reports/eda_audit_20260619/reporte_auditoria_eda.md`, tablas y figuras.
+- Desarrollo vigente: `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/`.
+- Prueba vigente: `data/outputs/cierre_final_test_ensamble_512_20260606_1640/`.
+- Reporte consolidado: `python scripts/reportes/generar_reporte_estado_actual.py --verbose`.
+
+El [índice documental](docs/README.md) organiza el frente público. Puntos de entrada: [Metodología](docs/METODOLOGIA.md), [Guía de ejecución](docs/GUIA_EJECUCION.md), [Decisiones](docs/DECISIONES_METODOLOGICAS_CLAVE.md), [Revalidación](docs/REVALIDACION_RESULTADOS_REFERENCIA.md), [Limitaciones](docs/LIMITACIONES.md), [Validación clínica](docs/ESTRATEGIA_VALIDACION.md), [notebooks](notebooks/README.md) y [scripts](scripts/README.md).

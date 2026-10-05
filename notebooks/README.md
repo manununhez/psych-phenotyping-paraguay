@@ -1,6 +1,6 @@
 # Guía de Notebooks
 
-Este directorio contiene solo notebooks activos para reproducibilidad.
+Esta guía describe los notebooks versionados del flujo oficial. Los archivos exploratorios locales no se convierten en etapas del pipeline por estar presentes en el árbol.
 
 ## Flujo experimental principal
 1. `pipeline/01_datos_eda_limpieza.ipynb`
@@ -12,16 +12,24 @@ Este directorio contiene solo notebooks activos para reproducibilidad.
 7. `analysis/05_brecha_lexica_co_core_py.ipynb`
 8. `pipeline/06_ingenieria_features_hibridas.ipynb`
 9. `pipeline/07_entrenamiento_modelos_hibridos.ipynb`
-10. `pipeline/08_resultados_hibrido_vs_lineas_base.ipynb`
-11. `pipeline/09b_cierre_modelos_dev.ipynb`
-12. `analysis/09_analisis_errores_hibrido.ipynb`
-13. `analysis/09c_auditoria_validacion_secundaria_dev.ipynb`
+10. `../scripts/comparar_backbones_hibrido.py` (comparación controlada, no notebook).
+11. `pipeline/08_resultados_hibrido_vs_lineas_base.ipynb`
+12. `pipeline/09b_cierre_modelos_dev.ipynb`
+13. `analysis/09_analisis_errores_hibrido.ipynb`
 14. `pipeline/10_cierre_final_test_ensamble.ipynb`
 
-## Fase clínica secundaria
-1. `analysis/10_validacion_clinica_ips.ipynb`
+## Fases secundarias opcionales
+- `analysis/09c_auditoria_validacion_secundaria_dev.ipynb`: controles sobre configuraciones históricas en desarrollo.
+- `analysis/10_validacion_clinica_ips.ipynb`: preparación de materiales para revisión experta.
 
-Esta fase consume artefactos ya cerrados en `dev`; no redefine la shortlist ni la selección experimental.
+Estas fases consumen artefactos cerrados en `dev`; no redefinen selección. Generar materiales no acredita revisión clínica completada, y SHAP histórico del híbrido no explica el ensamble final.
+
+## Limpieza y EDA en 01
+El notebook `01` contiene todo el EDA, sin invocar scripts externos: análisis global y por partición/clase, consultas por paciente, demografía, histogramas e intervalos de edad, longitudes, tokens, truncamiento potencial, vocabulario, duplicados y retención.
+
+Las secciones 1 a 5 preparan `ips_clean.csv`. Desde la sección 6 necesita los artefactos de `02`/`03`; el cálculo de tokens requiere el tokenizer local en `data/checkpoints/roberta_clinical/checkpoint-210`. En un arranque limpio ejecutar primero la limpieza, materializar los insumos y volver al EDA completo. El orquestador actual no implementa automáticamente esta ejecución en dos pasadas.
+
+Si la limpieza difiere del archivo canónico existente, `01` conserva este último y exporta un candidato privado. Eso exige revisar la discrepancia antes de continuar; no sustituir silenciosamente el universo experimental.
 
 ## Análisis (científico)
 1. `analysis/05_brecha_lexica_co_core_py.ipynb`
@@ -30,9 +38,12 @@ Esta fase consume artefactos ya cerrados en `dev`; no redefine la shortlist ni l
 4. `analysis/10_validacion_clinica_ips.ipynb`
 
 ## Alcance de esta fase
-- Este flujo llega hasta cierre en `dev` y evaluación final única en `test`.
+- Este flujo llega al cierre histórico en `dev`, la verificación del recongelado y la inferencia final del ensamble en `test`.
 - El notebook final de `test` es `pipeline/10_cierre_final_test_ensamble.ipynb`.
 - Incluye auditoría secundaria en `dev` con SHAP mínimo; no incluye todavía xAI final posterior a `test`.
+- `09b`/`09` conservan la selección multicriterio histórica y sus errores; no seleccionaron los pesos vigentes `0.65 / 0.15 / 0.20`.
+- Las comparaciones posteriores de TF-IDF y del híbrido no son la ejecución final de `10` ni reabren selección con prueba. Véase [Resultados de referencia](../docs/REVALIDACION_RESULTADOS_REFERENCIA.md).
+- `05` documenta cobertura `co/core/py` en desarrollo. Las métricas por rama de `10` en prueba describen desempeño, no contribución aislada de PY o LLM.
 
 ## Apéndice (solo soporte)
 1. `appendix/A00_configuracion_entorno.ipynb`
@@ -48,11 +59,12 @@ Cada notebook operativo declara al inicio:
 - por qué esas herramientas son adecuadas en esta etapa y cuál sería la alternativa si no fueran la mejor opción
 
 ## Artefactos esperados por etapa
+- 01: `reports/eda_audit_20260619/reporte_auditoria_eda.md`, `tables/`, `figures/` y `execution_manifest.json`, además de la limpieza inicial. Son salidas locales, no documentos públicos a versionar.
 - 04c: `data/outputs/transformer_baseline_selection_<timestamp>.json` y `data/outputs/transformer_baseline_selection_latest.json`.
 - 06: `data/processed/fe_<run_id>_{core,py}/features_{core,py}.parquet`.
 - 07: `data/outputs/train_<run_id>/` con métricas, predicciones, figuras y modelos.
 - 08: `data/outputs/results_<run_id>/` con tablas y figuras de comparación.
-- 09b: `data/outputs/cierre_modelos_dev_<timestamp>/` con ranking, decisión y lista corta para `test`. Si no existe un barrido compatible con la corrida base actual, `09b` puede preparar automáticamente el barrido y regenerar el freeze léxico antes del cierre.
+- 09b: `data/outputs/cierre_modelos_dev_<timestamp>/` con ranking, decisión y shortlist histórica. Si no existe un barrido compatible, puede prepararlo y regenerar el freeze; una nueva ejecución no reproduce por sí sola el recongelado vigente.
 - 09 análisis: `data/outputs/error_analysis_<run_id>/` con resumen de errores y casos.
 - 09c auditoría secundaria: `data/outputs/auditoria_final_caseC_validacion_secundaria/` con Caso C, métricas por paciente, AP/PR-AUC, sensibilidad `sample_weight`, demografía descriptiva y SHAP por familias.
 - 10 cierre final test: `data/outputs/cierre_final_test_ensamble_512_20260606_1640/` con métricas, matriz de confusión, predicciones por rama, errores, resumen por paciente y bootstrap agrupado por paciente.
@@ -75,6 +87,7 @@ Cada notebook operativo declara al inicio:
   - `TRAIN_DROP_COLUMNS`, `TRAIN_DROP_PREFIXES`, `TRAIN_KEEP_PREFIXES`
 
 ## Resolución por defecto de artefactos
+- La resolución automática sirve para nuevas corridas. Para reproducir el cierre vigente conservar manifiestos, hashes e identificadores explícitos; no asumir que `latest` sigue apuntando a la referencia original.
 - 07 resuelve la última corrida completa de features (`fe_*`) por mtime real, no por orden alfabético del nombre.
 - 08 resuelve por defecto la última corrida base canónica `train_YYYYMMDD_HHMMSS`, evitando confundirse con corridas hijas del barrido.
 - 09b busca un barrido compatible con la corrida base actual (`train_*` + `fe_*`) y, si no existe, puede generarlo automáticamente antes del cierre formal.

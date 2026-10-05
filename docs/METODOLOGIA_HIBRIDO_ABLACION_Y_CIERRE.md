@@ -3,6 +3,8 @@
 ## Propósito de este documento
 Este documento explica de forma completa cómo el proyecto construye, compara y cierra la familia de modelos híbridos. Su objetivo es que una persona pueda entender esta etapa sin abrir los notebooks ni reconstruir la lógica a partir del código.
 
+**Alcance histórico:** la rúbrica, parsimonia, métricas por paciente y SHAP descritos aquí pertenecen al cierre reducido de `09b`/`09c` (861 variables). Las menciones a "híbrido final" se refieren a esa variante histórica, no al comparador completo 512 de 958 variables ni al ensamble vigente. Los pesos del ensamble se seleccionaron por Macro-F1 entre 231 ternas en `dev`, no mediante esta rúbrica. La comparación actual y sus fuentes están en [Revalidación](REVALIDACION_RESULTADOS_REFERENCIA.md).
+
 La pregunta que resuelve no es solo "qué modelo rindió más". Resuelve algo más exigente:
 
 - qué matriz de características se construyó;
@@ -658,7 +660,7 @@ Por eso es posible retener una variante híbrida contenida aunque `TF-IDF` o `RO
 ## Robustecimiento secundario sobre `dev`
 Después del cierre formal se ejecutó una auditoría secundaria para revisar tres riesgos: concentración documental por paciente, desempeño específico en `ansiedad` y explicabilidad mínima del XGB final.
 
-Esta auditoría no reabre la selección de modelo. Usa la shortlist y los artefactos congelados para medir robustez antes de abrir `test`.
+Esta auditoría no reabre selección. Usa la shortlist histórica y artefactos congelados para controles en `dev`; no implica que las mismas configuraciones o métricas describan el recongelado posterior.
 
 ### Métricas por nivel de agregación
 La evaluación principal sigue siendo por nota, pero se añadieron dos lecturas complementarias:
@@ -686,7 +688,7 @@ El resultado fue negativo: el híbrido ponderado bajó a `macro_f1 = 0.707644`, 
 ### Ansiedad, PR-AUC y umbral
 La auditoría confirma que `ansiedad` sigue siendo la clase más débil. En Average Precision para `ansiedad`, el híbrido final alcanza `0.589144`, por debajo de TF-IDF (`0.725725`) y `ROBERTA_CLINICAL` (`0.655111`).
 
-Se exploró el umbral del híbrido en `dev`. El umbral canónico `0.50` queda como referencia principal. El mejor umbral observado en `dev` para F1 de ansiedad fue `0.466311`, pero su mejora fue marginal, por lo que no conviene mover el umbral oficial salvo pre-especificación explícita antes de abrir `test`.
+Se exploró el umbral del híbrido histórico en `dev`. Se conservó `0.50`; el mejor valor observado para F1 de ansiedad fue `0.466311`, pero no se adoptó. Esta sensibilidad no modifica la decisión por máximo de probabilidades del ensamble ni autoriza ajustes con prueba.
 
 ### SHAP mínimo sobre el XGB final
 La auditoría SHAP se ejecutó sobre el XGB final congelado. El modelo usa `861` columnas:
@@ -698,10 +700,10 @@ La auditoría SHAP se ejecutó sobre el XGB final congelado. El modelo usa `861`
 
 No usa `rule_medication_*`, `sent_*`, `template`, `feat_*` fusionadas ni LLM en la variante final.
 
-La importancia SHAP global queda dominada por `ctx_beto_*`. Las reglas clínicas aportan menos globalmente, aunque conservan valor para trazabilidad local y análisis de casos. La lectura correcta es que el modelo final es un XGB tabular parsimonioso con embeddings BETO y reglas auditables; no un clasificador principalmente simbólico.
+La importancia SHAP global queda dominada por `ctx_beto_*`. Las reglas aportan menos globalmente, aunque conservan valor para trazabilidad local. Esto describe el XGB histórico reducido, no el ensamble vigente ni el comparador completo; las atribuciones tampoco demuestran relevancia clínica causal.
 
 ## Qué significa que el híbrido final sea parsimonioso
-En la corrida vigente, el híbrido retenido es:
+En el cierre histórico reducido, el híbrido retenido es:
 
 - `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB`
 

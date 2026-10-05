@@ -1,235 +1,88 @@
-# Revalidación: valores de referencia y criterio de comparación
+# Revalidación: resultados y procedencia
 
-## Propósito
-Este documento fija los valores canónicos que deben usarse para comparar una regeneración completa del pipeline contra el estado actualmente documentado del proyecto.
+## Qué se reproduce
+Se distingue **reproducción de inferencia congelada** de **regeneración con nuevos entrenamientos**. La primera usa los artefactos originales; la segunda produce una nueva corrida y puede cambiar resultados o selección. Mantener código y seeds no obliga a recuperar el mismo ranking.
 
-Su objetivo es servir como hoja de control para una revalidación técnica del pipeline público.
+Estos valores describen el cierre reproducible del 6 de junio de 2026 y sus comparadores posteriores, sin alterar cifras, pesos ni particiones.
 
-## Fuentes canónicas usadas
-- `data/outputs/transformer_baseline_selection_latest.json`
-- `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/manifest.json`
-- `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/metricas_comparativas_dev.csv`
-- `data/outputs/cierre_final_test_ensamble_512_20260606_1640/manifest.json`
-- `data/outputs/cierre_final_test_ensamble_512_20260606_1640/metricas_test.csv`
-- `data/outputs/cierre_dev_ensamble_512_20260512_155606/manifest.json` como cierre histórico de mayo
-- `data/outputs/comparacion_backbones_hibrido_latest.json`
-- `data/outputs/cierre_modelos_dev_20260401_114409/decision_modelo_final.json`
-- `data/outputs/results_20260401_112536/tabla_comparativa_modelos.csv`
-
-## Actualización de cierre dev
-El cierre de referencia vigente queda actualizado al ensamble por ramas recongelado con `max_length=512`.
-
-La configuración anterior basada en híbrido tabular y el cierre por ensamble de mayo se conservan como referencias históricas/comparativas. No deben borrarse ni sobrescribirse, pero ya no representan la configuración reproducible vigente para abrir `test`.
-
-## Resultado final en test
-
-| Campo | Valor |
-|---|---|
-| Run | `data/outputs/cierre_final_test_ensamble_512_20260606_1640/` |
-| Estado | `TEST_EJECUTADO_UNA_VEZ` |
-| `n_eval` | `385` |
-| Pacientes | `18` |
-| `macro_f1_test` | `0.5558067330150362` |
-| `balanced_accuracy_test` | `0.5538825286212046` |
-| `weighted_f1_test` | `0.6713494255559185` |
-| `f1_ansiedad_test` | `0.32044198895027626` |
-| `f1_depresion_test` | `0.7911714770797963` |
-
-Matriz de confusión:
-
-|                | pred_ansiedad | pred_depresion |
-|---|---:|---:|
-| true_ansiedad  | `29` | `69` |
-| true_depresion | `54` | `233` |
-
-Lectura de revalidación: el cierre dev recongelado no generaliza al `test` con la misma fuerza observada en `dev`; la principal pérdida está en ansiedad. Estos valores son referencia final hold-out y no deben usarse para reajustar modelos.
-
-## Advertencia importante antes de limpiar `data/`
-Si se conserva **solo** `data/ips_raw.csv`, puede regenerarse el flujo activo del pipeline, pero hay dos matices que conviene fijar desde el inicio.
-
-### Motivo
-La regeneración del estado vigente no depende únicamente del corpus bruto. También hay pasos que usan insumos adicionales:
-- `data/processed/gemini_extraction.json`: opcional para `06`, pero relevante para variantes del barrido híbrido con `llm1`.
-- la validación clínica externa con IPS es una instancia cualitativa ya enviada y no forma parte del rerun técnico estándar.
-
-### Implicación práctica
-- Si regenerás `gemini_extraction.json`, las variantes con LLM pueden cambiar aunque el resto del pipeline se mantenga estable.
-- Si vaciás `data/` hasta dejar solo `ips_raw.csv`, vas a poder reconstruir el flujo activo `01`-`09`; la revisión clínica externa queda fuera del rerun técnico principal.
-
-## Qué debería coincidir exactamente
-Estos valores deberían volver a salir si se ejecuta el pipeline sobre el mismo código, submódulo, insumo base y seeds:
-
-### Corpus y splits
-| Elemento | Valor canónico |
-|---|---:|
-| Registros originales (`ips_raw`) | `3155` |
-| Pacientes originales | `90` |
-| Registros tras deduplicación (`dataset_base`) | `3143` |
-| Pacientes tras deduplicación | `90` |
-| `ansiedad` en `dataset_base` | `925` |
-| `depresion` en `dataset_base` | `2218` |
-| Registros finales modelados (`dataset_denoised`) | `1835` |
-| Pacientes finales modelados | `90` |
-| `ansiedad` en `dataset_denoised` | `556` |
-| `depresion` en `dataset_denoised` | `1279` |
-| `train` registros | `1107` |
-| `train` pacientes únicos | `54` |
-| `train`: `ansiedad` | `358` |
-| `train`: `depresion` | `749` |
-| `dev` registros | `343` |
-| `dev` pacientes únicos | `18` |
-| `dev`: `ansiedad` | `100` |
-| `dev`: `depresion` | `243` |
-| `test` registros | `385` |
-| `test` pacientes únicos | `18` |
-| `test`: `ansiedad` | `98` |
-| `test`: `depresion` | `287` |
-
-### Longitud de texto por split
-| Split | Media | Mediana |
-|---|---:|---:|
-| `dataset_base` | `138.86859688195992` | `65.0` |
-| `train` | `226.91237579042456` | `153.0` |
-| `dev` | `198.90379008746356` | `126.0` |
-| `test` | `209.37142857142857` | `152.0` |
-
-## Resultados de referencia en `dev`
-
-### Baselines
-| Modelo | Macro F1 | Precision macro | Recall macro | Accuracy |
+## Corpus de referencia
+| Universo | Pacientes | Notas | Ansiedad | Depresión |
 |---|---:|---:|---:|---:|
-| `DUMMY` | `0.4942373085372092` | `0.4947659374264879` | `0.4945061728395061` | `0.5714285714285714` |
-| `TF-IDF` | `0.7405642538385901` | `0.7322895093908448` | `0.767716049382716` | `0.7667638483965015` |
-| `BETO` | `0.7350522620828567` | `0.7271533613445378` | `0.7491769547325102` | `0.7696793002915452` |
-| `ROBERTA_CLINICAL` | `0.7410776566366946` | `0.7322864594653337` | `0.7638888888888888` | `0.7696793002915452` |
-| `ROBERTA_BIOMEDICAL` | `0.722793714143178` | `0.7173617583100342` | `0.7303497942386832` | `0.7638483965014577` |
+| Base limpia | 90 | 3143 | 925 | 2218 |
+| Denoised | 90 | 1835 | 556 | 1279 |
+| Entrenamiento denoised | 54 | 1107 | 358 | 749 |
+| Validación denoised | 18 | 343 | 100 | 243 |
+| Prueba denoised | 18 | 385 | 98 | 287 |
 
-### Comparación controlada de backbone del híbrido
-| Backbone | Modelo | Macro F1 | Balanced accuracy | F1 ansiedad | F1 depresión | n features |
-|---|---|---:|---:|---:|---:|---:|
-| `beto` | `BETO` | `0.7288943006066821` | `0.7212139917695473` | `0.6063829787234043` | `0.8514056224899599` | `861` |
-| `roberta_clinical` | `ROBERTA_CLINICAL` | `0.7243149400405088` | `0.7162139917695474` | `0.5989304812834224` | `0.8496993987975952` | `861` |
+El original contiene 3155 notas de 90 pacientes. La retención frente a la base limpia es 58.38%. Los conjuntos previos al filtro tienen 1911, 595 y 637 notas. La pertenencia de pacientes se fija antes del filtro y no debe modificarse para obtener otras distribuciones.
 
-### Cierre dev vigente recongelado
-| Campo | Valor |
-|---|---|
-| Modelo final vigente | Ensamble weighted soft recongelado `ROBERTA_CLINICAL 512 + simbólico py RF + simbólico core RF late fusion LLM` |
-| Pesos | `0.65 / 0.15 / 0.20` |
-| Split | `dev` |
-| `n_eval` | `343` |
-| `macro_f1_dev` | `0.7570167123971066` |
-| `balanced_accuracy_dev` | `0.7656378600823045` |
-| `weighted_f1_dev` | `0.7960017657064606` |
-| `f1_ansiedad_dev` | `0.6635071090047393` |
-| `f1_depresion_dev` | `0.8505263157894737` |
-| Estado | `cierre dev recongelado reproducible; test ejecutado aparte una sola vez` |
+## Comparación vigente
+Macro-F1 a nivel nota, sobre 343 notas de desarrollo y 385 de prueba:
 
-### Cierre dev anterior preservado como histórico
-| Campo | Valor |
-|---|---|
-| Modelo histórico | Ensamble weighted soft `ROBERTA_CLINICAL 512 + simbólico py RF + simbólico core RF late fusion LLM` |
-| Pesos | `0.80 / 0.10 / 0.10` |
-| `macro_f1_dev` | `0.7492497114274721` |
-| `balanced_accuracy_dev` | `0.7700617283950617` |
-| Motivo de cambio | no se encontró el checkpoint exacto de `ROBERTA_CLINICAL 512`; se recongeló una versión reproducible antes de abrir `test` |
+| Configuración | Desarrollo | Prueba | Procedencia |
+|---|---:|---:|---|
+| Ensamble 512, pesos 0.65/0.15/0.20 | 0.757017 | 0.555807 | Cierre congelado |
+| RoBERTa clínico 512 aislado | 0.747232 | 0.540702 | Rama contextual del cierre |
+| TF-IDF + LinearSVC | 0.740564 | 0.584478 | Reproducción posterior, ajuste solo en entrenamiento |
+| Híbrido completo PY XGBoost 512 | 0.723387 | 0.506520 | Inferencia posterior del modelo conservado |
+| Random Forest Core + PY, sin LLM | 0.632684 | 0.545550 | Rama local del cierre |
+| Random Forest Core + LLM | 0.640838 | 0.581889 | Rama Core/LLM del cierre |
 
-### Mejor híbrido tabular alineado a 512
-| Campo | Valor |
-|---|---|
-| Modelo | `Híbrido tabular 512 py XGB` |
-| Feature run | `fe_20260512_161646` |
-| Train run | `train_20260512_165340` |
-| `context_max_length` | `512` |
-| `macro_f1_dev` | `0.7233870967741935` |
-| `balanced_accuracy_dev` | `0.7170987654320987` |
-| `weighted_f1_dev` | `0.7748283645255337` |
-| `f1_ansiedad_dev` | `0.600000` |
-| `f1_depresion_dev` | `0.846774193548387` |
+El ensamble fue el mejor valor en desarrollo; TF-IDF fue el mejor valor puntual en prueba. Las ramas aisladas comparan desempeño, no aporte causal ni ganancia específica de PY. No hay una prueba pareada de superioridad estadística.
 
-### Híbrido tabular histórico
-| Campo | Valor |
-|---|---|
-| Modelo histórico | `B_A_llm0_sent0_beto1_tpl0_py_XGB_sin_feat_sin_medication|py|XGB` |
-| Lectura | referencia histórica/comparativa, no mejor modelo global vigente |
+La corrida final del ensamble fue `predict-only`. TF-IDF y el híbrido se compararon posteriormente, sin selección con prueba. No todas las cifras de esta tabla salieron de la ejecución final del notebook `10`.
 
-## Decisiones metodológicas que deberían mantenerse
-| Decisión | Valor canónico |
-|---|---|
-| Baseline fuerte simple | `TF-IDF` |
-| Mejor transformer standalone | `ROBERTA_CLINICAL` |
-| Mejor backbone del híbrido | `BETO` |
-| Mejor híbrido tabular 512 | `py XGB` |
-| Mejor modelo global en `dev` | ensamble weighted soft 512 |
-| `test` | ejecutado una sola vez con el ensamble 512 congelado; Macro-F1 `0.555807` |
-| XAI | fuera del cierre técnico actual; integración formal final pendiente |
-| Estado de fase | `CIERRE_FINAL_TEST_EJECUTADO` |
-| `transformer` standalone y backbone del híbrido | `NO COINCIDEN` |
-| Freeze léxico preliminar | `freeze_lexico_20260401_114408` |
-| Split de decisión | `dev` |
+## Resultado final del ensamble
+| Métrica | Desarrollo | Prueba |
+|---|---:|---:|
+| Macro-F1 | 0.757017 | 0.555807 |
+| Balanced accuracy | 0.765638 | 0.553883 |
+| Weighted-F1 | 0.796002 | 0.671349 |
+| F1 ansiedad | 0.663507 | 0.320442 |
+| F1 depresión | 0.850526 | 0.791171 |
 
-## Lista corta congelada antes de `test`
-La shortlist preespecificada antes de la evaluación final fue:
-- `TF-IDF`
-- `ROBERTA_CLINICAL`
-- ensamble weighted soft 512
-- híbrido tabular 512 `py XGB` como comparador clínico-tabular
+Matriz de confusión final; filas = referencia, columnas = predicción:
 
-## Qué puede variar sin invalidar la revalidación
-### 1. Timestamps y nombres de carpetas
-No deben compararse literalmente:
-- `data/outputs/train_<timestamp>`
-- `data/outputs/results_<timestamp>`
-- `data/outputs/cierre_modelos_dev_<timestamp>`
-- `data/processed/fe_<timestamp>_*`
+| Referencia | Ansiedad predicha | Depresión predicha |
+|---|---:|---:|
+| Ansiedad | 29 | 69 |
+| Depresión | 54 | 233 |
 
-### 2. Artefactos LLM si regenerás `gemini_extraction.json`
-Si actualizás `data/processed/gemini_extraction.json`, no corresponde exigir identidad exacta en:
-- variantes del barrido con `llm1`;
-- algunas métricas del híbrido si esas variantes vuelven a influir en el ranking;
-- comparaciones finas que dependan de la normalización semántica del LLM.
+Son 262 aciertos y 123 errores. La recuperación de ansiedad es 29/98 (29.59%); la de depresión, 233/287 (81.18%). Accuracy 68.05% no resume esta asimetría. El bootstrap de 1000 remuestreos por paciente, semilla 42, da un intervalo percentil del 95% de Macro-F1 aproximado `[0.453942, 0.661296]`. Es incertidumbre del ensamble sobre 18 pacientes, no de la diferencia frente a TF-IDF o RoBERTa.
 
-### 3. Transformers
-Aunque se mantengan seeds y datos, una rerun de `04c` puede mostrar pequeñas variaciones numéricas por entorno, librerías o entrenamiento. La expectativa razonable no es identidad decimal perfecta, sino:
-- mismo orden metodológico principal;
-- misma selección de `ROBERTA_CLINICAL` como mejor transformer standalone;
-- misma lectura general del cierre.
+## Referencias históricas separadas
+| Experimento | Macro-F1 en desarrollo | Alcance |
+|---|---:|---|
+| Dummy estratificado | 0.494237 | Referencia trivial |
+| Backbone BETO en híbrido reducido | 0.728894 | Comparación controlada, 861 variables |
+| Backbone RoBERTa clínico en híbrido reducido | 0.724315 | Misma variante de 861 variables |
+| Ensamble de mayo, pesos 0.80/0.10/0.10 | 0.749250 | Checkpoint contextual exacto no recuperado |
 
-## Qué sería una señal de divergencia seria
-Debe auditarse si cambia cualquiera de estos puntos:
-- `3155 -> 3143 -> 1835`
-- `1107 / 343 / 385`
-- distribución por clase en `train/dev/test`
-- mejor transformer standalone
-- mejor backbone del híbrido
-- modelo final cerrado en `dev`
-- shortlist que pasa a `test`
+El híbrido reducido y el completo 512 de 958 variables no son el mismo modelo. Las métricas por paciente y SHAP históricos de `09c` no se trasladan al comparador completo ni al ensamble. `09b` conserva la rúbrica y shortlist históricas; los pesos vigentes provienen de 231 ternas evaluadas en desarrollo durante el recongelado.
 
-## Recomendación operativa para la revalidación
-### Opción segura
-Conservar al menos:
-- `data/ips_raw.csv`
-- el commit actual del repo
-- el commit actual del submódulo
+## Fuentes de las cifras
+Los artefactos locales no se publican con el repositorio:
 
-### Si insistís en conservar solo `ips_raw.csv`
-Podrás regenerar el flujo activo del pipeline y reconstruir de nuevo los artefactos técnicos principales. Los puntos que quedan fuera de esa lógica son:
-- la validación clínica externa ya enviada;
-- y cualquier diferencia derivada de volver a generar `gemini_extraction.json`.
+- Desarrollo: `data/outputs/cierre_dev_recongelado_roberta_512_20260606_160946/`, con `manifest.json` y `metricas_globales_por_rama_dev.csv`.
+- Prueba: `data/outputs/cierre_final_test_ensamble_512_20260606_1640/`, con `manifest.json`, `metricas_test.csv` y `metricas_globales_por_rama_test.csv`.
+- Comparadores posteriores: `reports/qa_numerica_anteproyecto_20260728/dev_test_comparators.csv`, con procedencia por fila. TF-IDF y XGBoost remiten a `reports/pipeline_audit_20260622/tables/dev_test_comparators.csv`.
+- Híbrido completo: features `fe_20260512_161646` y entrenamiento `train_20260512_165340`.
+- Backbone controlado: manifiesto de la corrida referida por `data/outputs/comparacion_backbones_hibrido_latest.json`; verificar identidad antes de comparar.
+- EDA: `reports/eda_audit_20260619/reporte_auditoria_eda.md`, tablas, figuras y `execution_manifest.json`, generados en `01`.
 
-En ese escenario, la comparación correcta sería:
-- corpus y splits: sí
-- baselines y líneas principales de `dev`: sí
-- freeze léxico actual: sí
-- frente IPS actual: se mantiene como material externo ya cerrado; no es el foco del rerun técnico
-- variantes LLM actualizadas con nuevo `gemini_extraction.json`: no necesariamente
+La fecha del nombre de carpeta no basta para fechar la ejecución: consultar el manifiesto. `latest` facilita operación corriente, pero no sustituye identificadores y hashes de una referencia congelada.
 
-## Checklist mínimo de comparación post-rerun
-1. Verificar `n` del corpus en cada etapa.
-2. Verificar distribución por clase en `dataset_base` y `dataset_denoised`.
-3. Verificar `train/dev/test` y pacientes únicos por split.
-4. Verificar mejor transformer standalone.
-5. Verificar comparación controlada de backbones.
-6. Verificar híbrido final cerrado en `dev`.
-7. Verificar shortlist para `test`.
-8. Verificar que `test` siga sin abrirse.
-9. Verificar si el nuevo `gemini_extraction.json` cambió variantes `llm1` y documentarlo explícitamente.
+## Material para reproducción exacta
+Conservar commits del repositorio y submódulo, entorno, corpus e índices, snapshot de reglas, extracción LLM conservada, columnas, tokenizer, checkpoints, modelos, pesos y predicciones de referencia. Verificar integridad y compatibilidad.
+
+No basta con `ips_raw.csv`. Una nueva llamada LLM genera otro artefacto; otro entrenamiento puede cambiar probabilidades o selección. No se debe sobrescribir evidencia ni presentar una nueva corrida como recuperación exacta de un checkpoint ausente.
+
+## Verificación operativa
+1. Comprobar conteos, etiquetas, índices y separación de pacientes.
+2. Verificar identidad de reglas, extracción, columnas, modelos y tokenizer con los manifiestos.
+3. Usar rutas explícitas del cierre, no resolver sin control otra corrida mediante `latest`.
+4. Ejecutar `10` en modo `dev`, en carpeta nueva, y comparar `row_id`, clases, probabilidades y predicciones. La tolerancia contextual predeterminada es `1e-5`; diferencias aceptables en probabilidades no autorizan cambios silenciosos de etiquetas predichas.
+5. Comparar métricas recalculadas desde predicciones congeladas, distinguiendo redondeo de diferencias reales.
+6. Mantener prueba fuera de selección y documentar por separado las auditorías posteriores.
+
+La [Guía de ejecución](GUIA_EJECUCION.md) describe requisitos del EDA, regeneración ordinaria y comprobación en desarrollo sin sobrescribir el cierre.

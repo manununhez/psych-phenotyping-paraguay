@@ -1,44 +1,31 @@
 # Estrategia de validación clínica
 
-La validación clínica se plantea como revisión cualitativa estructurada con psiquiatría. El objetivo no es reemplazar la evaluación cuantitativa del pipeline, sino contrastar decisiones críticas de diseño en casos reales.
+## Alcance y estado
+La revisión experta es una fase secundaria de interpretación, no una nueva selección de modelos. Hay materiales y casos preparados para revisión externa; generarlos o enviarlos no equivale a validación completada. No se documenta una revisión experta completa para estimar la correctitud del denoising ni validar cada expresión local.
 
-## Qué justifica esta validación
-La fase clínica no existe para "corregir" retrospectivamente el benchmark en `dev`. Su justificación es metodológica:
+`notebooks/analysis/10_validacion_clinica_ips.ipynb` organiza materiales desde artefactos históricos cerrados en `dev`, con los generadores versionados de `scripts/export/`. No reentrena ni sustituye la evaluación final. SHAP mínimo de `09c` corresponde a un híbrido histórico; la explicabilidad del ensamble final sigue pendiente.
 
-- el rendimiento depende del universo de notas realmente modelado y no solo del clasificador;
-- en una tarea diferencial entre ansiedad y depresión, parte del desacuerdo modelo-etiqueta puede reflejar baja separabilidad clínica de la consulta y no solo un error algorítmico;
-- la evaluación final en `test` ya se realizó; la revisión experta de señal clínica útil, negación, notas poco diagnósticas y posibles límites del etiquetado sirve ahora para interpretar los resultados, sin reajustar modelos ni reglas con `test`.
+## Preguntas de revisión
+Conviene distinguir cuatro objetos:
 
-Se priorizan tres focos de revisión:
-1. decisiones de denoising (qué se excluye y qué se conserva),
-2. interpretación de negación del paciente (`niega_*`) como señal clínica,
-3. detección de variantes lingüísticas paraguayas no cubiertas.
+1. **Denoising:** si las retenidas contienen evidencia útil y las excluidas contienen señal omitida por el filtro.
+2. **Aseveración:** si las menciones son del paciente, actuales, afirmadas o negadas, en vez de históricas, hipotéticas, familiares o de plantilla.
+3. **Diccionario:** si Core y PY capturan el concepto en contexto, incluidos medicamentos y expresiones regionales.
+4. **Clasificación:** si los desacuerdos reflejan errores del modelo, ambigüedad clínica o límites de la etiqueta. No se presume una explicación antes de revisar.
 
-## Relación con el desbalance y las métricas
-La validación clínica no reemplaza las métricas cuantitativas, pero sí ayuda a interpretarlas correctamente.
+## Diseño para auditar el filtro
+La muestra debe incluir retenidas y excluidas por clase y partición. Un diseño orientativo es revisar 120 notas: diez por cada una de doce celdas (dos clases, tres particiones y dos estados de retención), combinando casos aleatorios y dirigidos. La revisión sigue pendiente; este diseño no constituye un resultado clínico ni una etapa obligatoria del pipeline público.
 
-El problema sigue desbalanceado a favor de `depresion`, por lo que la lectura principal del proyecto prioriza:
+El formulario debería registrar señal relevante, concepto, sujeto, temporalidad, negación, motivo de inclusión/exclusión, desacuerdo con el extractor y decisión del revisor. La primera lectura debe evitar mostrar la predicción; una segunda puede revisar la regla activada. Dos revisores y adjudicación permiten medir acuerdo. Los casos dirigidos deben analizarse aparte: no estiman tasas representativas sin ponderar el diseño.
 
-- `macro_f1`;
-- `balanced_accuracy`;
-- F1 por clase.
+Puede complementarse con la lectura cualitativa solicitada de notas de ansiedad y con casos de información perdida al truncar. Una inspección pequeña permite formular hipótesis, pero no prueba causalidad ni valida todo el filtro.
 
-Eso evita sobreleer aciertos totales en la clase mayoritaria como si fueran suficiente evidencia de superioridad clínica. La revisión con IPS es especialmente útil para entender:
+## Controles descriptivos y técnicos
+El EDA de `01` aporta distribuciones globales y por partición: pacientes, notas, clases, sexo, edad con histogramas e intervalos, consultas por paciente, longitud, tokens, vocabulario, duplicados y retención. Permite observar diferencias, no demostrar su efecto sobre el rendimiento.
 
-- por qué `ansiedad` queda más frágil;
-- qué errores responden a seguimiento, baja fenomenología o solapamiento clínico;
-- y qué notas quizá no deberían entrar a una tarea diferencial tan estricta.
+El cierre `10` verifica checkpoint, tokenizer, longitud máxima, clases, alineación de probabilidades y reproducción en `dev`. Son controles computacionales distintos de validación clínica. No hay metadata suficiente para comparar profesionales; ese análisis no debe presentarse como realizado.
 
-El frente clínico vigente se organiza sobre artefactos ya cerrados en `dev`. La capa operativa actual es `notebooks/analysis/10_validacion_clinica_ips.ipynb`, apoyada por `scripts/export/generar_material_validacion_ips.py`, `scripts/export/curar_dossier_ips.py` y `scripts/export/cerrar_fase_ips.py`. Esta validación se entiende como contraste experto externo y no como una etapa que deba regenerarse de manera rutinaria en cada rerun técnico del pipeline. Además, deja un conjunto curado de casos y preguntas que puede reutilizarse más adelante en la fase de xAI.
+## Límites y resguardo
+Revisar prueba después del cierre solo permite interpretar resultados congelados; no habilita cambiar reglas, instrucciones LLM, modelos, pesos o umbral y seguir llamando independiente a esa evaluación. Un cambio requeriría otro protocolo y datos de evaluación independientes.
 
-En el estudio, esta validación aporta evidencia de validez de contenido y ayuda a justificar por qué ciertas decisiones de extracción se mantienen aun cuando no son triviales desde una lectura puramente lexical.
-
-## Qué no debe hacer esta fase
-La validación clínica externa no debe usarse para:
-
-- reabrir libremente la ontología;
-- redefinir retrospectivamente la tarea como screening general;
-- cambiar la shortlist principal en función de impresiones aisladas;
-- sustituir la comparación cuantitativa por anécdotas clínicas.
-
-Su papel correcto es profundizar la interpretación metodológica del sistema tras el cierre en `test`, no convertir la fase clínica en una nueva etapa de modelado.
+Textos, formularios y observaciones individuales son material restringido. Antes de compartirlos debe verificarse desidentificación y alcance de la autorización. Los documentos públicos deben contener resultados agregados, sin notas ni identificadores de pacientes.
